@@ -1,0 +1,1249 @@
+{
+  "schemaVersion": 1,
+  "command": "pnpm verify:local",
+  "startedAtUtc": "2026-09-13T20:25:04.8470005Z",
+  "completedAtUtc": "2026-09-13T20:30:16.6328648Z",
+  "result": "passed",
+  "overallPass": true,
+  "closureEligible": true,
+  "environment": {
+    "node": "v24.19.0",
+    "finalizerNode": "v24.19.0",
+    "pnpm": "11.19.0",
+    "postgresqlBinary": "18.6",
+    "pnpmLockSha256": "ea2652f58c329ad0f1789fbecd2b2c972daebf696fa3215e5de12a499cb1ee85",
+    "valid": true
+  },
+  "guarantees": {
+    "liveIntegrationRequired": true,
+    "privilegedLiveRequired": true,
+    "stdoutPersisted": false,
+    "stderrPersisted": false,
+    "repositoryRelativeTestPathsOnly": true,
+    "zeroNonE2ESkipsRequired": true
+  },
+  "stages": [
+    {
+      "name": "source-snapshot-start",
+      "command": "hash closure-relevant workspace sources before verification",
+      "startedAtUtc": "2026-09-13T20:25:04.9358747Z",
+      "completedAtUtc": "2026-09-13T20:25:05.0680668Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "initial-health",
+      "command": "GET http://127.0.0.1:4000/healthz",
+      "startedAtUtc": "2026-09-13T20:25:05.0700668Z",
+      "completedAtUtc": "2026-09-13T20:25:05.1165145Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "live-prerequisites",
+      "command": "verify local live-integration prerequisites",
+      "startedAtUtc": "2026-09-13T20:25:05.1165145Z",
+      "completedAtUtc": "2026-09-13T20:25:05.4705935Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "supply-chain",
+      "command": "pnpm run security:supply-chain",
+      "startedAtUtc": "2026-09-13T20:25:05.4746016Z",
+      "completedAtUtc": "2026-09-13T20:25:06.8776634Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "dependency-audit",
+      "command": "pnpm audit --prod --audit-level high",
+      "startedAtUtc": "2026-09-13T20:25:06.8776634Z",
+      "completedAtUtc": "2026-09-13T20:25:07.6395058Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "typecheck",
+      "command": "pnpm run typecheck",
+      "startedAtUtc": "2026-09-13T20:25:07.6395058Z",
+      "completedAtUtc": "2026-09-13T20:25:16.5767003Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "lint",
+      "command": "pnpm run lint",
+      "startedAtUtc": "2026-09-13T20:25:16.5767003Z",
+      "completedAtUtc": "2026-09-13T20:25:26.8211478Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "stop-services-before-build",
+      "command": "scripts/stop-local.ps1 -KeepDatabase",
+      "startedAtUtc": "2026-09-13T20:25:26.8221476Z",
+      "completedAtUtc": "2026-09-13T20:25:27.6637507Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "build",
+      "command": "pnpm run build",
+      "startedAtUtc": "2026-09-13T20:25:27.6647512Z",
+      "completedAtUtc": "2026-09-13T20:25:41.5598645Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "start-fresh-services",
+      "command": "scripts/start-local.ps1",
+      "startedAtUtc": "2026-09-13T20:25:41.5598645Z",
+      "completedAtUtc": "2026-09-13T20:25:43.4579163Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "fresh-health",
+      "command": "GET http://127.0.0.1:4000/healthz (worker required)",
+      "startedAtUtc": "2026-09-13T20:25:43.4579163Z",
+      "completedAtUtc": "2026-09-13T20:25:43.4619284Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "verification-contract",
+      "command": "pnpm run test:verification",
+      "startedAtUtc": "2026-09-13T20:25:43.4680210Z",
+      "completedAtUtc": "2026-09-13T20:25:46.9527194Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": {
+        "suites": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0
+        },
+        "files": {
+          "total": 3,
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests": {
+          "total": 37,
+          "passed": 37,
+          "failed": 0,
+          "skipped": 0
+        }
+      },
+      "errorCode": null
+    },
+    {
+      "name": "test-domain",
+      "command": "pnpm --filter @nombramientos/domain test",
+      "startedAtUtc": "2026-09-13T20:25:46.9527194Z",
+      "completedAtUtc": "2026-09-13T20:25:47.9634985Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": {
+        "suites": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0
+        },
+        "files": {
+          "total": 4,
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests": {
+          "total": 41,
+          "passed": 41,
+          "failed": 0,
+          "skipped": 0
+        }
+      },
+      "errorCode": null
+    },
+    {
+      "name": "test-e2ee",
+      "command": "pnpm --filter @nombramientos/e2ee test",
+      "startedAtUtc": "2026-09-13T20:25:47.9634985Z",
+      "completedAtUtc": "2026-09-13T20:25:50.8366833Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": {
+        "suites": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0
+        },
+        "files": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests": {
+          "total": 31,
+          "passed": 31,
+          "failed": 0,
+          "skipped": 0
+        }
+      },
+      "errorCode": null
+    },
+    {
+      "name": "test-database",
+      "command": "pnpm --filter @nombramientos/database test --exclude test/seed-audit-history.live.test.ts",
+      "startedAtUtc": "2026-09-13T20:25:50.8366833Z",
+      "completedAtUtc": "2026-09-13T20:26:04.7152873Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": {
+        "suites": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0
+        },
+        "files": {
+          "total": 63,
+          "passed": 63,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests": {
+          "total": 335,
+          "passed": 335,
+          "failed": 0,
+          "skipped": 0
+        }
+      },
+      "errorCode": null
+    },
+    {
+      "name": "test-api",
+      "command": "pnpm --filter @nombramientos/api test",
+      "startedAtUtc": "2026-09-13T20:26:04.7152873Z",
+      "completedAtUtc": "2026-09-13T20:26:31.3156052Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": {
+        "suites": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0
+        },
+        "files": {
+          "total": 43,
+          "passed": 43,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests": {
+          "total": 247,
+          "passed": 247,
+          "failed": 0,
+          "skipped": 0
+        }
+      },
+      "errorCode": null
+    },
+    {
+      "name": "test-web",
+      "command": "pnpm --filter @nombramientos/web test:unit",
+      "startedAtUtc": "2026-09-13T20:26:31.3156052Z",
+      "completedAtUtc": "2026-09-13T20:26:32.8167475Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": {
+        "suites": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0
+        },
+        "files": {
+          "total": 34,
+          "passed": 34,
+          "failed": 0,
+          "skipped": 0
+        },
+        "tests": {
+          "total": 196,
+          "passed": 196,
+          "failed": 0,
+          "skipped": 0
+        }
+      },
+      "errorCode": null
+    },
+    {
+      "name": "engine-probe",
+      "command": "node apps/web/scripts/check-playwright-engines.mjs",
+      "startedAtUtc": "2026-09-13T20:26:32.8177478Z",
+      "completedAtUtc": "2026-09-13T20:26:34.7179782Z",
+      "exitCode": 2,
+      "status": "accepted-optional",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "playwright-e2e",
+      "command": "pnpm run test:e2e",
+      "startedAtUtc": "2026-09-13T20:26:34.7209781Z",
+      "completedAtUtc": "2026-09-13T20:30:12.6965720Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "playwright-skip-policy",
+      "command": "validate Playwright results against apps/web/e2e/intentional-skips.json",
+      "startedAtUtc": "2026-09-13T20:30:12.6965720Z",
+      "completedAtUtc": "2026-09-13T20:30:12.7684945Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "pdf-render",
+      "command": "pdftoppm -png -r 96 docs/evidence/demo-cycle-summary.pdf <temporary-report-prefix> (all pages)",
+      "startedAtUtc": "2026-09-13T20:30:12.7684945Z",
+      "completedAtUtc": "2026-09-13T20:30:12.9257354Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "delivery-scan",
+      "command": "pnpm run security:delivery",
+      "startedAtUtc": "2026-09-13T20:30:12.9257354Z",
+      "completedAtUtc": "2026-09-13T20:30:14.8846820Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "local-state-verification",
+      "command": "pnpm --silent run db:verify:local-state",
+      "startedAtUtc": "2026-09-13T20:30:14.8846820Z",
+      "completedAtUtc": "2026-09-13T20:30:16.4315864Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "terminal-health",
+      "command": "verify recorded API/web/worker processes and terminal HTTP health",
+      "startedAtUtc": "2026-09-13T20:30:16.4315864Z",
+      "completedAtUtc": "2026-09-13T20:30:16.5179312Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "source-integrity-final",
+      "command": "re-hash closure-relevant workspace sources before publication",
+      "startedAtUtc": "2026-09-13T20:30:16.5179312Z",
+      "completedAtUtc": "2026-09-13T20:30:16.6328648Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "evidence-finalize",
+      "command": "atomically publish artifacts/verify-local-final.json",
+      "startedAtUtc": "2026-09-13T20:30:16.6328648Z",
+      "completedAtUtc": "2026-09-13T20:30:16.824Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    }
+  ],
+  "testSuites": [
+    {
+      "name": "domain",
+      "suites": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "files": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      "tests": {
+        "total": 41,
+        "passed": 41,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "name": "e2ee",
+      "suites": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "files": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      "tests": {
+        "total": 31,
+        "passed": 31,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "name": "database",
+      "suites": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "files": {
+        "total": 63,
+        "passed": 63,
+        "failed": 0,
+        "skipped": 0
+      },
+      "tests": {
+        "total": 335,
+        "passed": 335,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "name": "api",
+      "suites": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "files": {
+        "total": 43,
+        "passed": 43,
+        "failed": 0,
+        "skipped": 0
+      },
+      "tests": {
+        "total": 247,
+        "passed": 247,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "name": "web",
+      "suites": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "files": {
+        "total": 34,
+        "passed": 34,
+        "failed": 0,
+        "skipped": 0
+      },
+      "tests": {
+        "total": 196,
+        "passed": 196,
+        "failed": 0,
+        "skipped": 0
+      }
+    }
+  ],
+  "engines": {
+    "probeExitCode": 2,
+    "valid": true,
+    "stageMatchesDecision": true,
+    "includeFirefox": false,
+    "firefoxExclusionReason": "current-run-native-probe-exit-2",
+    "results": [
+      {
+        "name": "chromium",
+        "required": true,
+        "available": true,
+        "elapsedMs": 1530,
+        "code": null
+      },
+      {
+        "name": "firefox",
+        "required": false,
+        "available": false,
+        "elapsedMs": 10,
+        "code": "WINDOWS_NATIVE_SPAWN_UNKNOWN"
+      },
+      {
+        "name": "webkit",
+        "required": true,
+        "available": true,
+        "elapsedMs": 78,
+        "code": null
+      }
+    ]
+  },
+  "e2e": {
+    "valid": true,
+    "sourceEntries": 18,
+    "expectedSkipCount": 54,
+    "actualSkipCount": 54,
+    "activeProjects": [
+      "desktop-chromium-es",
+      "mobile-chromium-es",
+      "mobile-small",
+      "mobile-webkit-fr"
+    ],
+    "expectedProjects": [
+      "desktop-chromium-es",
+      "mobile-chromium-es",
+      "mobile-small",
+      "mobile-webkit-fr"
+    ],
+    "projectMatrixMatches": true,
+    "runProject": "desktop-chromium-es",
+    "perProject": [
+      {
+        "project": "desktop-chromium-es",
+        "total": 31,
+        "passed": 31,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "mobile-chromium-es",
+        "total": 31,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 18
+      },
+      {
+        "project": "mobile-small",
+        "total": 31,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 18
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "total": 31,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 18
+      }
+    ],
+    "unexpectedCount": 0,
+    "missingCount": 0,
+    "runProjectFailureCount": 0,
+    "duplicateCount": 0,
+    "duplicateResultCount": 0,
+    "invalidStatusCount": 0,
+    "outsideProjectCount": 0,
+    "unsafeFileCount": 0,
+    "reportedCountsMatch": true,
+    "plannedCountMatches": true,
+    "everyProjectExecuted": true,
+    "counts": {
+      "suites": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "files": {
+        "total": 56,
+        "passed": 32,
+        "failed": 0,
+        "skipped": 24
+      },
+      "tests": {
+        "total": 124,
+        "passed": 70,
+        "failed": 0,
+        "skipped": 54
+      }
+    },
+    "skips": [
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/acceptance-closure.spec.ts",
+        "title": "AC-08 browser previews create, update and skip while retaining an accent-insensitive homonym",
+        "reason": "One deterministic mocked commit avoids persistent roster growth",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/acceptance-closure.spec.ts",
+        "title": "AC-09 restricted committee browser receives redacted members and cannot export",
+        "reason": "The real restricted Demo identity is exercised once",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/acceptance-closure.spec.ts",
+        "title": "AC-18 browser presents zero-vote, single-candidate, tie, top-K and cutoff-tie outcomes without writes",
+        "reason": "Deterministic read-only aggregate projections run once",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/acceptance-closure.spec.ts",
+        "title": "AC-20 live browser responses are no-store and the SSE ready frame is metadata-only",
+        "reason": "One live network inspection is sufficient",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/accessibility-pwa.spec.ts",
+        "title": "persistent accessibility controls reflow at 320px and the PWA caches public assets only",
+        "reason": "One real Chromium ceremony avoids concurrent preference writes",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/analytics.spec.ts",
+        "title": "renders charts and their table alternatives without mutation requests",
+        "reason": "One read-only browser is sufficient for the persisted aggregate contract",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/custody-ceremony.spec.ts",
+        "title": "custodian creates, restores and revokes an encrypted device backup without browser persistence",
+        "reason": "One browser ceremony is sufficient; custody writes are synthetic and leave Demo unchanged",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/demo-flow.spec.ts",
+        "title": "authorized browser generates valid PDF, XLSX and CSV artifacts locally",
+        "reason": "One isolated client ceremony validates every downloadable report format",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/import-worker.spec.ts",
+        "title": "large roster inspection and preview stay off the browser main thread",
+        "reason": "One mandatory browser proves the dedicated-worker boundary",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/management-flows.spec.ts",
+        "title": "local catalog extension create, edit, disable and reactivate are projected without Demo writes",
+        "reason": "One synthetic browser management scenario covers catalog lifecycle without changing Demo",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/management-flows.spec.ts",
+        "title": "member administration edits encrypted data and projects archive/reactivation without Demo writes",
+        "reason": "One synthetic browser management scenario covers the member lifecycle without changing Demo",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/photo-flow.spec.ts",
+        "title": "authorized Chromium normalizes, encrypts, displays and archives a photo without sending original bytes",
+        "reason": "One real Chromium execution is sufficient; photo writes are synthetic and leave Demo unchanged",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/resilience-races.spec.ts",
+        "title": "offline draft is revalidated against a closed round before submission",
+        "reason": "Exercises the local demo race once without mutating tenant data",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/resilience-races.spec.ts",
+        "title": "tampered candidate ciphertext fails closed in the browser",
+        "reason": "Exercises one authenticated browser and never persists plaintext or secrets",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/role-access.spec.ts",
+        "title": "auditor Demo identity enforces role-specific UI and API boundaries",
+        "reason": "One real Chromium role matrix avoids redundant MFA traffic",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/role-access.spec.ts",
+        "title": "committee Demo identity enforces role-specific UI and API boundaries",
+        "reason": "One real Chromium role matrix avoids redundant MFA traffic",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/role-access.spec.ts",
+        "title": "custodian Demo identity enforces role-specific UI and API boundaries",
+        "reason": "One real Chromium role matrix avoids redundant MFA traffic",
+        "count": 1
+      },
+      {
+        "project": "mobile-chromium-es",
+        "file": "apps/web/e2e/role-access.spec.ts",
+        "title": "secretary Demo identity enforces role-specific UI and API boundaries",
+        "reason": "One real Chromium role matrix avoids redundant MFA traffic",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/acceptance-closure.spec.ts",
+        "title": "AC-08 browser previews create, update and skip while retaining an accent-insensitive homonym",
+        "reason": "One deterministic mocked commit avoids persistent roster growth",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/acceptance-closure.spec.ts",
+        "title": "AC-09 restricted committee browser receives redacted members and cannot export",
+        "reason": "The real restricted Demo identity is exercised once",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/acceptance-closure.spec.ts",
+        "title": "AC-18 browser presents zero-vote, single-candidate, tie, top-K and cutoff-tie outcomes without writes",
+        "reason": "Deterministic read-only aggregate projections run once",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/acceptance-closure.spec.ts",
+        "title": "AC-20 live browser responses are no-store and the SSE ready frame is metadata-only",
+        "reason": "One live network inspection is sufficient",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/accessibility-pwa.spec.ts",
+        "title": "persistent accessibility controls reflow at 320px and the PWA caches public assets only",
+        "reason": "One real Chromium ceremony avoids concurrent preference writes",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/analytics.spec.ts",
+        "title": "renders charts and their table alternatives without mutation requests",
+        "reason": "One read-only browser is sufficient for the persisted aggregate contract",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/custody-ceremony.spec.ts",
+        "title": "custodian creates, restores and revokes an encrypted device backup without browser persistence",
+        "reason": "One browser ceremony is sufficient; custody writes are synthetic and leave Demo unchanged",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/demo-flow.spec.ts",
+        "title": "authorized browser generates valid PDF, XLSX and CSV artifacts locally",
+        "reason": "One isolated client ceremony validates every downloadable report format",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/import-worker.spec.ts",
+        "title": "large roster inspection and preview stay off the browser main thread",
+        "reason": "One mandatory browser proves the dedicated-worker boundary",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/management-flows.spec.ts",
+        "title": "local catalog extension create, edit, disable and reactivate are projected without Demo writes",
+        "reason": "One synthetic browser management scenario covers catalog lifecycle without changing Demo",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/management-flows.spec.ts",
+        "title": "member administration edits encrypted data and projects archive/reactivation without Demo writes",
+        "reason": "One synthetic browser management scenario covers the member lifecycle without changing Demo",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/photo-flow.spec.ts",
+        "title": "authorized Chromium normalizes, encrypts, displays and archives a photo without sending original bytes",
+        "reason": "One real Chromium execution is sufficient; photo writes are synthetic and leave Demo unchanged",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/resilience-races.spec.ts",
+        "title": "offline draft is revalidated against a closed round before submission",
+        "reason": "Exercises the local demo race once without mutating tenant data",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/resilience-races.spec.ts",
+        "title": "tampered candidate ciphertext fails closed in the browser",
+        "reason": "Exercises one authenticated browser and never persists plaintext or secrets",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/role-access.spec.ts",
+        "title": "auditor Demo identity enforces role-specific UI and API boundaries",
+        "reason": "One real Chromium role matrix avoids redundant MFA traffic",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/role-access.spec.ts",
+        "title": "committee Demo identity enforces role-specific UI and API boundaries",
+        "reason": "One real Chromium role matrix avoids redundant MFA traffic",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/role-access.spec.ts",
+        "title": "custodian Demo identity enforces role-specific UI and API boundaries",
+        "reason": "One real Chromium role matrix avoids redundant MFA traffic",
+        "count": 1
+      },
+      {
+        "project": "mobile-small",
+        "file": "apps/web/e2e/role-access.spec.ts",
+        "title": "secretary Demo identity enforces role-specific UI and API boundaries",
+        "reason": "One real Chromium role matrix avoids redundant MFA traffic",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/acceptance-closure.spec.ts",
+        "title": "AC-08 browser previews create, update and skip while retaining an accent-insensitive homonym",
+        "reason": "One deterministic mocked commit avoids persistent roster growth",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/acceptance-closure.spec.ts",
+        "title": "AC-09 restricted committee browser receives redacted members and cannot export",
+        "reason": "The real restricted Demo identity is exercised once",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/acceptance-closure.spec.ts",
+        "title": "AC-18 browser presents zero-vote, single-candidate, tie, top-K and cutoff-tie outcomes without writes",
+        "reason": "Deterministic read-only aggregate projections run once",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/acceptance-closure.spec.ts",
+        "title": "AC-20 live browser responses are no-store and the SSE ready frame is metadata-only",
+        "reason": "One live network inspection is sufficient",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/accessibility-pwa.spec.ts",
+        "title": "persistent accessibility controls reflow at 320px and the PWA caches public assets only",
+        "reason": "One real Chromium ceremony avoids concurrent preference writes",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/analytics.spec.ts",
+        "title": "renders charts and their table alternatives without mutation requests",
+        "reason": "One read-only browser is sufficient for the persisted aggregate contract",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/custody-ceremony.spec.ts",
+        "title": "custodian creates, restores and revokes an encrypted device backup without browser persistence",
+        "reason": "One browser ceremony is sufficient; custody writes are synthetic and leave Demo unchanged",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/demo-flow.spec.ts",
+        "title": "authorized browser generates valid PDF, XLSX and CSV artifacts locally",
+        "reason": "One isolated client ceremony validates every downloadable report format",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/import-worker.spec.ts",
+        "title": "large roster inspection and preview stay off the browser main thread",
+        "reason": "One mandatory browser proves the dedicated-worker boundary",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/management-flows.spec.ts",
+        "title": "local catalog extension create, edit, disable and reactivate are projected without Demo writes",
+        "reason": "One synthetic browser management scenario covers catalog lifecycle without changing Demo",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/management-flows.spec.ts",
+        "title": "member administration edits encrypted data and projects archive/reactivation without Demo writes",
+        "reason": "One synthetic browser management scenario covers the member lifecycle without changing Demo",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/photo-flow.spec.ts",
+        "title": "authorized Chromium normalizes, encrypts, displays and archives a photo without sending original bytes",
+        "reason": "One real Chromium execution is sufficient; photo writes are synthetic and leave Demo unchanged",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/resilience-races.spec.ts",
+        "title": "offline draft is revalidated against a closed round before submission",
+        "reason": "Exercises the local demo race once without mutating tenant data",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/resilience-races.spec.ts",
+        "title": "tampered candidate ciphertext fails closed in the browser",
+        "reason": "Exercises one authenticated browser and never persists plaintext or secrets",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/role-access.spec.ts",
+        "title": "auditor Demo identity enforces role-specific UI and API boundaries",
+        "reason": "One real Chromium role matrix avoids redundant MFA traffic",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/role-access.spec.ts",
+        "title": "committee Demo identity enforces role-specific UI and API boundaries",
+        "reason": "One real Chromium role matrix avoids redundant MFA traffic",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/role-access.spec.ts",
+        "title": "custodian Demo identity enforces role-specific UI and API boundaries",
+        "reason": "One real Chromium role matrix avoids redundant MFA traffic",
+        "count": 1
+      },
+      {
+        "project": "mobile-webkit-fr",
+        "file": "apps/web/e2e/role-access.spec.ts",
+        "title": "secretary Demo identity enforces role-specific UI and API boundaries",
+        "reason": "One real Chromium role matrix avoids redundant MFA traffic",
+        "count": 1
+      }
+    ]
+  },
+  "artifacts": {
+    "valid": true,
+    "popplerRenderPass": true,
+    "requiredFileCount": 4,
+    "currentRunFileCount": 4,
+    "files": [
+      {
+        "path": "docs/evidence/demo-cycle-summary.pdf",
+        "sha256": "b3928cd03917552e744e5766b1fb6b2071916f43b1aee7400a2e6d44f906045c",
+        "bytes": 17213,
+        "modifiedAtUtc": "2026-09-13T20:27:40.335Z",
+        "present": true,
+        "fresh": true
+      },
+      {
+        "path": "docs/evidence/demo-cycle-summary.xlsx",
+        "sha256": "f34e347753e1d2a46d92b5e379fdb810df1fe00fa47c14f24e42a2946ce2b61f",
+        "bytes": 7226,
+        "modifiedAtUtc": "2026-09-13T20:27:40.818Z",
+        "present": true,
+        "fresh": true
+      },
+      {
+        "path": "docs/evidence/demo-cycle-summary.csv",
+        "sha256": "361b0204f9629c6d12b812b55f00219d3acbd33c8c19cc22050b0a6b265468c7",
+        "bytes": 504,
+        "modifiedAtUtc": "2026-09-13T20:27:41.292Z",
+        "present": true,
+        "fresh": true
+      },
+      {
+        "path": "docs/evidence/demo-cycle-summary-history.csv",
+        "sha256": "361b0204f9629c6d12b812b55f00219d3acbd33c8c19cc22050b0a6b265468c7",
+        "bytes": 504,
+        "modifiedAtUtc": "2026-09-13T20:27:41.685Z",
+        "present": true,
+        "fresh": true
+      }
+    ]
+  },
+  "localState": {
+    "schemaVersion": 2,
+    "checkedAt": "2026-09-13T20:30:16.360Z",
+    "checkedWithinStage": true,
+    "mode": "read-only",
+    "demoFixtureExpectation": "after",
+    "pass": true,
+    "mismatchCount": 0,
+    "server": {
+      "postgresMajor": 18,
+      "port": 55432,
+      "loopback": true,
+      "controlDatabaseMatch": true,
+      "transactionReadOnly": true,
+      "transactionIsolation": "repeatable read",
+      "administratorMatch": true,
+      "mismatchCount": 0
+    },
+    "control": {
+      "migrations": {
+        "expectedCount": 14,
+        "appliedCount": 14,
+        "pendingCount": 0,
+        "unexpectedCount": 0,
+        "checksumMismatchCount": 0,
+        "head": "014_tenant_summary_export_bytes.sql",
+        "expectedHead": "014_tenant_summary_export_bytes.sql",
+        "ledgerSha256": "3345f5127ec6baeb44dec563c72f382ec615881f911597f726db3238599b3068",
+        "mismatchCount": 0,
+        "valid": true
+      },
+      "tenantRouteCount": 2,
+      "routeMismatchCount": 0,
+      "ozamaIdentityOrAdminArtifactCount": 0,
+      "workerBacklog": {
+        "provisioningJobCount": 0,
+        "tenantExportJobCount": 0,
+        "totalCount": 0,
+        "mismatchCount": 0
+      },
+      "schemaInventoryMismatchCount": 0,
+      "roleMismatchCount": 0,
+      "catalogMetadata": {
+        "catalogSha256": "69e08c82ced860d07c57bd0ee9f59c1dd6e4b3c1216a95256ff63c6cfdfb158d",
+        "commentCount": 6,
+        "sharedCommentCount": 0,
+        "securityLabelCount": 0,
+        "eventTriggerCount": 0,
+        "publicationCount": 0,
+        "subscriptionCount": 0,
+        "rewriteRuleCount": 0,
+        "mismatchCount": 0,
+        "valid": true
+      },
+      "mismatchCount": 0
+    },
+    "tenants": {
+      "demo": {
+        "kind": "demo",
+        "lifecycle": "active",
+        "setupState": "ready",
+        "maintenanceClass": "routable",
+        "migrations": {
+          "expectedCount": 35,
+          "appliedCount": 35,
+          "pendingCount": 0,
+          "unexpectedCount": 0,
+          "checksumMismatchCount": 0,
+          "head": "033_member_qualification_envelope_shape.sql",
+          "expectedHead": "033_member_qualification_envelope_shape.sql",
+          "ledgerSha256": "ddb66dc1b7b96ae4561b2f48077f28d6c9b1737ff52cb0558a2ffb1bcb709ed8",
+          "mismatchCount": 0,
+          "valid": true
+        },
+        "schemaInventoryMismatchCount": 0,
+        "institutionalCatalog": {
+          "targetVersion": "2025.1.0",
+          "observedVersion": "2025.1.0",
+          "expectedDepartmentCount": 29,
+          "observedDepartmentCount": 29,
+          "missingDepartmentCount": 0,
+          "unexpectedDepartmentCount": 0,
+          "expectedOfficeCount": 67,
+          "observedOfficeCount": 67,
+          "missingOfficeCount": 0,
+          "unexpectedOfficeCount": 0,
+          "targetCatalogSha256": "sha256:c41426801200251a88b90c8d3dfc6f3f158332c3158e77adf1b4bd72e90c6fb8",
+          "observedCatalogSha256": "sha256:c41426801200251a88b90c8d3dfc6f3f158332c3158e77adf1b4bd72e90c6fb8",
+          "localExtensionCollisionCount": 0,
+          "invalidRowVersionCount": 0,
+          "blockingMismatchCount": 0,
+          "mismatchCount": 0,
+          "valid": true
+        },
+        "catalogMetadata": {
+          "catalogSha256": "182c82412e723e0ce210e023532a674587e7bdaa12a42ee70316b3f7f9176dc0",
+          "commentCount": 61,
+          "sharedCommentCount": 0,
+          "securityLabelCount": 0,
+          "eventTriggerCount": 0,
+          "publicationCount": 0,
+          "subscriptionCount": 0,
+          "rewriteRuleCount": 0,
+          "mismatchCount": 0,
+          "valid": true
+        },
+        "tableInventoryMismatchCount": 0,
+        "ownershipMismatchCount": 0,
+        "runtimeGrantMismatchCount": 0,
+        "memberCount": 180,
+        "eligibleMemberCount": 150,
+        "mismatchCount": 0,
+        "valid": true
+      },
+      "ozama": {
+        "kind": "real",
+        "lifecycle": "provisioning",
+        "setupState": "not_started",
+        "maintenanceClass": "pending_activation",
+        "migrations": {
+          "expectedCount": 35,
+          "appliedCount": 35,
+          "pendingCount": 0,
+          "unexpectedCount": 0,
+          "checksumMismatchCount": 0,
+          "head": "033_member_qualification_envelope_shape.sql",
+          "expectedHead": "033_member_qualification_envelope_shape.sql",
+          "ledgerSha256": "ddb66dc1b7b96ae4561b2f48077f28d6c9b1737ff52cb0558a2ffb1bcb709ed8",
+          "mismatchCount": 0,
+          "valid": true
+        },
+        "schemaInventoryMismatchCount": 0,
+        "institutionalCatalog": {
+          "targetVersion": "2025.1.0",
+          "observedVersion": "2025.1.0",
+          "expectedDepartmentCount": 29,
+          "observedDepartmentCount": 29,
+          "missingDepartmentCount": 0,
+          "unexpectedDepartmentCount": 0,
+          "expectedOfficeCount": 67,
+          "observedOfficeCount": 67,
+          "missingOfficeCount": 0,
+          "unexpectedOfficeCount": 0,
+          "targetCatalogSha256": "sha256:c41426801200251a88b90c8d3dfc6f3f158332c3158e77adf1b4bd72e90c6fb8",
+          "observedCatalogSha256": "sha256:c41426801200251a88b90c8d3dfc6f3f158332c3158e77adf1b4bd72e90c6fb8",
+          "localExtensionCollisionCount": 0,
+          "invalidRowVersionCount": 0,
+          "blockingMismatchCount": 0,
+          "mismatchCount": 0,
+          "valid": true
+        },
+        "catalogMetadata": {
+          "catalogSha256": "182c82412e723e0ce210e023532a674587e7bdaa12a42ee70316b3f7f9176dc0",
+          "commentCount": 61,
+          "sharedCommentCount": 0,
+          "securityLabelCount": 0,
+          "eventTriggerCount": 0,
+          "publicationCount": 0,
+          "subscriptionCount": 0,
+          "rewriteRuleCount": 0,
+          "mismatchCount": 0,
+          "valid": true
+        },
+        "tableInventoryMismatchCount": 0,
+        "ownershipMismatchCount": 0,
+        "runtimeGrantMismatchCount": 0,
+        "operationalTableCount": 46,
+        "operationalRowCount": 0,
+        "mismatchCount": 0,
+        "valid": true
+      }
+    },
+    "valid": true
+  },
+  "sourceIntegrity": {
+    "start": {
+      "schemaVersion": 1,
+      "algorithm": "sha256",
+      "fileCount": 566,
+      "sha256": "bdb5e6937f7498ca509cae1d2c16ac0c7e473e5e80432f46deb2b6fce56c1ebe"
+    },
+    "end": {
+      "schemaVersion": 1,
+      "algorithm": "sha256",
+      "fileCount": 566,
+      "sha256": "bdb5e6937f7498ca509cae1d2c16ac0c7e473e5e80432f46deb2b6fce56c1ebe"
+    },
+    "publication": {
+      "schemaVersion": 1,
+      "algorithm": "sha256",
+      "fileCount": 566,
+      "sha256": "bdb5e6937f7498ca509cae1d2c16ac0c7e473e5e80432f46deb2b6fce56c1ebe"
+    },
+    "valid": true
+  },
+  "serviceLifecycle": {
+    "freshServicesStarted": true,
+    "terminalHealthPassed": true,
+    "failureCleanupAttempted": false,
+    "failureCleanupSucceeded": null,
+    "successPolicy": "leave-api-web-worker-running-after-publication-health",
+    "failurePolicy": "stop-api-web-worker-and-keep-postgresql-running",
+    "publicationHealth": {
+      "api": true,
+      "web": true,
+      "worker": true,
+      "valid": true
+    },
+    "validForClosure": true
+  }
+}

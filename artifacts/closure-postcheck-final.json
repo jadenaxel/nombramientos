@@ -1,0 +1,389 @@
+{
+  "schemaVersion": 2,
+  "marker": "nombramientos-closure-postcheck-v2",
+  "assembledAtUtc": "2026-09-13T20:43:24.2362789Z",
+  "result": "passed",
+  "overallPass": true,
+  "scope": "automated-local-laboratory-closure-with-supplemental-browser-inspection",
+  "recordingMethod": "sanitized aggregation of immutable artifact hashes and observed terminal/browser results",
+  "cryptographicallySigned": false,
+  "authoritativeArtifacts": {
+    "verifyLocal": {
+      "path": "artifacts/verify-local-final.json",
+      "sha256": "532af0a43a374705a1e3f3a2020c35bc22940fe568f923068de06bca0a182c7a",
+      "bytes": 41046,
+      "startedAtUtc": "2026-09-13T20:25:04.8470005Z",
+      "completedAtUtc": "2026-09-13T20:30:16.6328648Z",
+      "result": "passed",
+      "overallPass": true,
+      "closureEligible": true,
+      "stages": {
+        "total": 26,
+        "passed": 25,
+        "acceptedOptional": 1,
+        "failed": 0
+      },
+      "nonPlaywrightTests": {
+        "total": 887,
+        "passed": 887,
+        "failed": 0,
+        "skipped": 0,
+        "breakdown": {
+          "verificationContract": 37,
+          "domain": 41,
+          "e2ee": 31,
+          "database": 335,
+          "api": 247,
+          "web": 196
+        }
+      },
+      "playwrightTests": {
+        "planned": 124,
+        "passed": 70,
+        "failed": 0,
+        "allowlistedSkipped": 54,
+        "perProject": {
+          "desktopChromiumEs": {
+            "planned": 31,
+            "passed": 31,
+            "allowlistedSkipped": 0
+          },
+          "mobileChromiumEs": {
+            "planned": 31,
+            "passed": 13,
+            "allowlistedSkipped": 18
+          },
+          "mobileSmall320": {
+            "planned": 31,
+            "passed": 13,
+            "allowlistedSkipped": 18
+          },
+          "mobileWebkitFr": {
+            "planned": 31,
+            "passed": 13,
+            "allowlistedSkipped": 18
+          }
+        }
+      },
+      "engines": {
+        "chromiumRequiredAndPassed": true,
+        "webkitRequiredAndPassed": true,
+        "firefoxRequired": false,
+        "firefoxAvailable": false,
+        "firefoxCode": "WINDOWS_NATIVE_SPAWN_UNKNOWN"
+      },
+      "environment": {
+        "node": "v24.19.0",
+        "pnpm": "11.19.0",
+        "postgresqlBinary": "18.6",
+        "pnpmLockSha256": "ea2652f58c329ad0f1789fbecd2b2c972daebf696fa3215e5de12a499cb1ee85"
+      },
+      "servicesLeftRunning": true,
+      "publicationHealth": {
+        "api": true,
+        "web": true,
+        "worker": true
+      }
+    },
+    "realStackPreflight": {
+      "path": "artifacts/real-browser-stack-preflight.json",
+      "sha256": "9aac28e066df89fe5c6885076789a50f1b1fe1a936c8387e72ec8deb5ad8322a",
+      "bytes": 2532,
+      "startedAtUtc": "2026-09-13T20:01:05.693Z",
+      "completedAtUtc": "2026-09-13T20:01:06.463Z",
+      "status": "passed",
+      "pass": true,
+      "protectedDatabasesUnchanged": true,
+      "ephemeralControlDatabasesAbsent": true,
+      "orphanTenantResourcesAbsent": true,
+      "ports3000And4000FreeThroughout": true
+    },
+    "realStack": {
+      "path": "artifacts/real-browser-stack-local.json",
+      "sha256": "d98655620a757f55cd163a295d67951919070bca28e38c559c1b58953caf398f",
+      "bytes": 3953,
+      "runId": "3d5a5b20-6980-4589-9d05-24cc985de205",
+      "startedAtUtc": "2026-09-13T20:00:36.228Z",
+      "completedAtUtc": "2026-09-13T20:00:41.705Z",
+      "status": "passed",
+      "scenarioPass": true,
+      "cleanupPass": true,
+      "protectedDatabasesUnchanged": true,
+      "databaseResidueCount": 0,
+      "roleResidueCount": 0,
+      "reservedPortsUsedByScenario": false,
+      "transport": "browser-fetch-to-fastify-loopback-to-postgresql",
+      "dedicatedPlaywright": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "scenarios": [
+          "productive PDF/XLSX/CSV generation, encryption, persistence, recovery and download",
+          "member import preview, commit, idempotent retry and homonym handling",
+          "ballot, abstention, receipts and two-custodian tally"
+        ]
+      },
+      "sanitizedObservation": {
+        "importJobs": 1,
+        "completedImportJobs": 1,
+        "memberRows": 3,
+        "updatedMemberVersion": 2,
+        "createdHomonymRows": 1,
+        "skippedMemberRows": 0,
+        "voteSubmissions": 2,
+        "voteReceipts": 2,
+        "distinctVoteElectors": 2,
+        "custodySets": 1,
+        "custodianSnapshots": 2,
+        "manifests": 1,
+        "manifestEntries": 2,
+        "attestations": 2,
+        "publishedManifests": 1,
+        "roundVersion": 4,
+        "roundPhase": "RESULTADO_INTERNO",
+        "aggregateSha256": "sha256:6ec5c6616921031d84329ba3317a0668c6e9594f58ac887aed4d11b73df9254e"
+      }
+    },
+    "catalogReconciliation": {
+      "path": "artifacts/catalog-reconciliation-local.json",
+      "sha256": "921c09faca8b828a4fd57f02a6763a5f6d8c23b6ff2251ad2c21d06e739098fc",
+      "bytes": 3986,
+      "result": "passed",
+      "overallPass": true,
+      "targetVersion": "2025.1.0",
+      "departmentCount": 29,
+      "officeCount": 67,
+      "catalogSha256": "sha256:c41426801200251a88b90c8d3dfc6f3f158332c3158e77adf1b4bd72e90c6fb8",
+      "demoAndOzamaCatalogMismatchCount": 0,
+      "demoAndOzamaOwnershipMismatchCount": 0,
+      "demoAndOzamaRuntimeGrantMismatchCount": 0,
+      "backupRestoreDrillsPassed": true,
+      "idempotencyPreflightsNoChanges": true,
+      "institutionalApprovalStatus": "draft-external"
+    },
+    "continuityHistorical": {
+      "path": "artifacts/continuity-restart-final.json",
+      "sha256": "50b59b8a6b25e3d71f262a1eddf7a0b58efea9088abc9ba762cfffaefcd98c50",
+      "bytes": 8896,
+      "result": "passed",
+      "eventCount": 921,
+      "anchorSequence": 2,
+      "historical": true,
+      "note": "Immutable earlier continuity evidence; the newer audit checkpoint is recorded separately and this file was not rewritten."
+    }
+  },
+  "sourceIntegrity": {
+    "testedRun": {
+      "schemaVersion": 1,
+      "algorithm": "sha256",
+      "fileCount": 566,
+      "sha256": "bdb5e6937f7498ca509cae1d2c16ac0c7e473e5e80432f46deb2b6fce56c1ebe",
+      "matchesStartEndPublication": true
+    },
+    "postRunClosureRelevantSnapshot": {
+      "schemaVersion": 1,
+      "algorithm": "sha256",
+      "fileCount": 566,
+      "sha256": "4d30c74845d403242bd64ab6ebd2b5191f6605d71b0cc993b576b386c7231533"
+    },
+    "postRunDelta": {
+      "sourceCodeChangedAfterVerify": false,
+      "documentationOnly": true,
+      "knownFingerprintScopeFile": "packages/catalog/README.md",
+      "interpretation": "The verify fingerprint remains authoritative for the tested run; the later fingerprint records the intentional documentation-only reconciliation."
+    }
+  },
+  "deliverySecurityDuringVerify": {
+    "path": "artifacts/delivery-security-scan.json",
+    "scannedAtUtc": "2026-09-13T20:30:14.848Z",
+    "pass": true,
+    "fileCount": 1003,
+    "textFileCount": 992,
+    "binaryFileCount": 11,
+    "archiveEntryCount": 20,
+    "findings": 0,
+    "manifestSha256": "c303cdb1e2ac8a5593aa902c594dbe43ab8a3ac627635e2fbdd917eac8f99f2a",
+    "secretScannerSelfTestPassed": true,
+    "sbomFormat": "CycloneDX 1.6",
+    "sbomComponentCount": 686,
+    "missingThirdPartyLicenseMetadataCount": 0,
+    "note": "A final delivery scan is intentionally published after this aggregation so the aggregation itself is included; its current report is the authority for the final package."
+  },
+  "auditAnchorPostVerify": {
+    "checkpoint": {
+      "status": "completed",
+      "eventCount": 1274,
+      "checkpointCount": 5,
+      "anchorSequence": 5,
+      "secretMaterialPrinted": false
+    },
+    "verification": {
+      "status": "passed",
+      "eventCount": 1274,
+      "checkpointCount": 5,
+      "anchorCount": 5,
+      "anchorSequence": 5,
+      "transactionReadOnly": true,
+      "secretMaterialPrinted": false
+    },
+    "tamperDrill": {
+      "status": "passed",
+      "baselineVerified": true,
+      "temporaryEvidenceRemoved": true,
+      "databaseWrites": 0,
+      "transactionReadOnly": true,
+      "secretMaterialPrinted": false,
+      "cases": {
+        "alteration": "EVENT_HASH_MISMATCH",
+        "intermediateDeletion": "EVENT_LINK_MISMATCH",
+        "truncation": "CHECKPOINT_EVENT_MISSING",
+        "reordering": "EVENT_LINK_MISMATCH",
+        "rollback": "TRUSTED_ANCHOR_MISMATCH"
+      }
+    },
+    "finalVerificationStatus": "passed",
+    "storageAssurance": "development-emulation-not-worm"
+  },
+  "localStatePostVerify": {
+    "schemaVersion": 2,
+    "checkedAtUtc": "2026-09-13T20:31:33.551Z",
+    "mode": "read-only",
+    "transactionIsolation": "repeatable read",
+    "pass": true,
+    "mismatchCount": 0,
+    "postgresBinaryVersion": "18.6",
+    "postgresServerMajor": 18,
+    "port": 55432,
+    "loopback": true,
+    "control": {
+      "migrationsApplied": 14,
+      "migrationsExpected": 14,
+      "head": "014_tenant_summary_export_bytes.sql",
+      "tenantRouteCount": 2,
+      "workerBacklog": 0
+    },
+    "demo": {
+      "lifecycle": "active",
+      "maintenanceClass": "routable",
+      "migrationsApplied": 35,
+      "migrationsExpected": 35,
+      "head": "033_member_qualification_envelope_shape.sql",
+      "memberCount": 180,
+      "eligibleMemberCount": 150,
+      "catalogVersion": "2025.1.0",
+      "catalogDepartmentCount": 29,
+      "catalogOfficeCount": 67,
+      "mismatchCount": 0
+    },
+    "ozama": {
+      "kind": "real",
+      "lifecycle": "provisioning",
+      "maintenanceClass": "pending_activation",
+      "migrationsApplied": 35,
+      "migrationsExpected": 35,
+      "head": "033_member_qualification_envelope_shape.sql",
+      "operationalTableCount": 46,
+      "operationalRowCount": 0,
+      "catalogVersion": "2025.1.0",
+      "catalogDepartmentCount": 29,
+      "catalogOfficeCount": 67,
+      "mismatchCount": 0
+    }
+  },
+  "healthSamples": [
+    {
+      "checkedAtUtc": "2026-09-13T20:31:45.2417118Z",
+      "apiStatus": "ok",
+      "webStatus": 200,
+      "workerStatus": "running",
+      "workerHealthy": true,
+      "workerHeartbeatAtUtc": "2026-09-13T20:31:44.588Z",
+      "workerProcessedCount": 1,
+      "workerLastErrorCode": null
+    },
+    {
+      "checkedAtUtc": "2026-09-13T20:31:45.5259360Z",
+      "apiStatus": "ok",
+      "webStatus": 200,
+      "workerStatus": "running",
+      "workerHealthy": true,
+      "workerHeartbeatAtUtc": "2026-09-13T20:31:44.588Z",
+      "workerProcessedCount": 1,
+      "workerLastErrorCode": null
+    },
+    {
+      "checkedAtUtc": "2026-09-13T20:31:45.8006156Z",
+      "apiStatus": "ok",
+      "webStatus": 200,
+      "workerStatus": "running",
+      "workerHealthy": true,
+      "workerHeartbeatAtUtc": "2026-09-13T20:31:44.588Z",
+      "workerProcessedCount": 1,
+      "workerLastErrorCode": null
+    },
+    {
+      "checkedAtUtc": "2026-09-13T20:31:46.0774304Z",
+      "apiStatus": "ok",
+      "webStatus": 200,
+      "workerStatus": "running",
+      "workerHealthy": true,
+      "workerHeartbeatAtUtc": "2026-09-13T20:31:44.588Z",
+      "workerProcessedCount": 1,
+      "workerLastErrorCode": null
+    },
+    {
+      "checkedAtUtc": "2026-09-13T20:31:46.3584053Z",
+      "apiStatus": "ok",
+      "webStatus": 200,
+      "workerStatus": "running",
+      "workerHealthy": true,
+      "workerHeartbeatAtUtc": "2026-09-13T20:31:46.093Z",
+      "workerProcessedCount": 1,
+      "workerLastErrorCode": null
+    }
+  ],
+  "supplementalBrowserInspection": {
+    "tool": "in-app browser computer-use",
+    "localesInspected": ["es", "en", "fr"],
+    "viewport": {"width": 320, "height": 700},
+    "surfaces": ["sign-in", "invitation acceptance", "platform bootstrap"],
+    "keyboardTraversal": "passed for skip link, locale links, fields, submit and invitation link",
+    "focusedOutline": "solid 2.4px",
+    "localizedInvalidLogin": "passed; stayed on localized route, cleared password and showed localized correlation error without overflow or redirect loop",
+    "localizedManifests": "HTTP 200 with application/manifest+json and matching language, name, start_url, display and icon",
+    "finding": "platform bootstrap horizontal overflow at 320px in all three locales",
+    "fix": {
+      "status": "implemented-and-verified",
+      "files": ["apps/web/app/globals.css", "apps/web/e2e/invitation-access.spec.ts"],
+      "regressionViewport": {"width": 320, "height": 720},
+      "postFixScrollWidth": 305,
+      "horizontalOverflow": false,
+      "inputsEnabledAfterHydration": true,
+      "submitHeightRangePx": [48, 56],
+      "coveredByFinalVerify": true
+    },
+    "humanCertificationClaimed": false
+  },
+  "documentation": {
+    "continuationPromptPath": "PROMPT-CONTINUACION-HASTA-100.md",
+    "continuationPromptHashEmbedded": false,
+    "reason": "The continuation document records this artifact path and may cite its published hash; omitting the reverse hash avoids circular evidence references.",
+    "staleEvidenceReconciled": true
+  },
+  "access": {
+    "signInUrl": "http://127.0.0.1:3000/es/auth/sign-in",
+    "demoCredentialProfilePath": "packages/database/.local/demo-access.json",
+    "demoCredentialProfileProtected": true,
+    "credentialMaterialEmbedded": false,
+    "ozamaUserProvisioned": false,
+    "ozamaReason": "real tenant intentionally remains pending activation"
+  },
+  "limitations": [
+    "This record is a sanitized local aggregation, not a cryptographically signed attestation.",
+    "Firefox was optional and unavailable on this Windows host with WINDOWS_NATIVE_SPAWN_UNKNOWN; Chromium and WebKit mandatory gates passed.",
+    "The institutional catalog is technically reconciled to revision 2025.1.0 but remains draft pending denominational and jurisdictional approval.",
+    "The audit ledger, receipt and signing keys remain on the same host and are not production WORM.",
+    "Human assistive-technology, zoom/device, PDF-UA, linguistic, legal, privacy, licensing and independent security/cryptographic reviews remain external.",
+    "Production TLS, email, object storage, KMS/HSM, observability/RUM, HA, WORM and off-host disaster recovery remain external integrations and operational validation."
+  ]
+}

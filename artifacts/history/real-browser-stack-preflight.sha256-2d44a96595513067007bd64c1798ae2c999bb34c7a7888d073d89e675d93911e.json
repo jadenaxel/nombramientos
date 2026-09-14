@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "marker": "nombramientos-real-browser-stack-v1",
+  "mode": "read-only-preflight",
+  "startedAt": "2026-09-14T08:04:21.002Z",
+  "status": "passed",
+  "inProgress": false,
+  "pass": true,
+  "protectedDatabasesUnchanged": true,
+  "ephemeralControlDatabasesAbsent": true,
+  "orphanTenantResourcesAbsent": true,
+  "globalEphemeralResources": {
+    "before": {
+      "matchedTenantDatabaseCount": 2,
+      "matchedTenantRoleCount": 4,
+      "ephemeralControlDatabaseCount": 0,
+      "unroutedTenantDatabaseCount": 0,
+      "unroutedTenantRoleCount": 0,
+      "orphanDatabaseCount": 0,
+      "orphanRoleCount": 0,
+      "databasesAbsent": true,
+      "rolesAbsent": true
+    },
+    "after": {
+      "matchedTenantDatabaseCount": 2,
+      "matchedTenantRoleCount": 4,
+      "ephemeralControlDatabaseCount": 0,
+      "unroutedTenantDatabaseCount": 0,
+      "unroutedTenantRoleCount": 0,
+      "orphanDatabaseCount": 0,
+      "orphanRoleCount": 0,
+      "databasesAbsent": true,
+      "rolesAbsent": true
+    }
+  },
+  "protectedFingerprints": {
+    "before": {
+      "control": "sha256:c3d4b6d5059a912e3daa12a0a3db87d465c3fc8e2cc8c3e082b779139dfab34e",
+      "demo": "sha256:5f63d0a493f9d1e175e68a986207ccb15f07e39b07d63c16e5321587e470a8ba",
+      "ozama": "sha256:3f2ee3a140628122be700f14eb004f97ec0ba5a0da5bc8a29ac117c771fb6009"
+    },
+    "after": {
+      "control": "sha256:c3d4b6d5059a912e3daa12a0a3db87d465c3fc8e2cc8c3e082b779139dfab34e",
+      "demo": "sha256:5f63d0a493f9d1e175e68a986207ccb15f07e39b07d63c16e5321587e470a8ba",
+      "ozama": "sha256:3f2ee3a140628122be700f14eb004f97ec0ba5a0da5bc8a29ac117c771fb6009"
+    }
+  },
+  "clusterCatalog": {
+    "before": {
+      "digest": "sha256:56c488402bb4f1dc39415557855873330dbb77fac255a7e716d836037b59ceda",
+      "databaseCount": 6,
+      "roleCount": 23,
+      "membershipCount": 3
+    },
+    "after": {
+      "digest": "sha256:56c488402bb4f1dc39415557855873330dbb77fac255a7e716d836037b59ceda",
+      "databaseCount": 6,
+      "roleCount": 23,
+      "membershipCount": 3
+    }
+  },
+  "operationalPorts": {
+    "requiredFree": [
+      3000,
+      4000
+    ],
+    "before": [
+      {
+        "port": 3000,
+        "acceptingConnections": false
+      },
+      {
+        "port": 4000,
+        "acceptingConnections": false
+      }
+    ],
+    "after": [
+      {
+        "port": 3000,
+        "acceptingConnections": false
+      },
+      {
+        "port": 4000,
+        "acceptingConnections": false
+      }
+    ]
+  },
+  "completedAt": "2026-09-14T08:04:21.653Z"
+}

@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "marker": "nombramientos-real-browser-stack-v1",
+  "runId": "518c433f-76f0-4e1e-b64d-29c2350da0f3",
+  "ephemeralTargets": {
+    "controlDatabase": "nom_e2e_c_518c433f76f04e1eb64d29c2350da0f3",
+    "tenantId": "1d7dcad0-b169-4562-a3df-502de072e5f5",
+    "tenantDatabase": "nom_t_1d7dcad0b1694562a3df502de072e5f5",
+    "ownerRole": "nom_o_1d7dcad0b1694562a3df502de072e5f5",
+    "runtimeRole": "nom_r_1d7dcad0b1694562a3df502de072e5f5",
+    "tenantSlug": "e2e-real-stack-1d7dcad0b1694562a3df502d"
+  },
+  "isolation": "ephemeral-control-and-tenant",
+  "transport": "browser-fetch-to-fastify-loopback-to-postgresql",
+  "startedAt": "2026-09-14T10:55:31.681Z",
+  "status": "passed",
+  "inProgress": false,
+  "scenarioPass": true,
+  "scenarioObservation": {
+    "import_jobs": 1,
+    "completed_import_jobs": 1,
+    "member_rows": 3,
+    "updated_member_version": 2,
+    "created_homonym_rows": 1,
+    "skipped_member_rows": 0,
+    "import_idempotency_records": 2,
+    "vote_submissions": 2,
+    "vote_receipts": 2,
+    "distinct_vote_electors": 2,
+    "vote_idempotency_records": 2,
+    "custody_sets": 1,
+    "custodian_snapshots": 2,
+    "manifests": 1,
+    "manifest_entries": 2,
+    "attestations": 2,
+    "published_manifests": 1,
+    "round_version": 4,
+    "round_phase": "RESULTADO_INTERNO",
+    "aggregateSha256": "sha256:f57898e3e8c1f74a41203ec284a37566b62cb7d7575abe17b7d36ab1b4a2fa8d"
+  },
+  "cleanupPass": true,
+  "protectedDatabasesUnchanged": true,
+  "mutationStarted": true,
+  "cleanupDdlStarted": true,
+  "protectedFingerprints": {
+    "before": {
+      "control": "sha256:c1a1ede5f36e3f1f586edfe06ba5d7884331399971a7824a01cdd3444201019a",
+      "demo": "sha256:15d2e2679d614ee19176ea64b5533f0426715692e70c4fe00d2ac5b5eaf89470",
+      "ozama": "sha256:7ebdd5ff900ec583ca1f1c559875a73c044d9d3aca683fb58fe1d544e7cd3703"
+    },
+    "after": {
+      "control": "sha256:c1a1ede5f36e3f1f586edfe06ba5d7884331399971a7824a01cdd3444201019a",
+      "demo": "sha256:15d2e2679d614ee19176ea64b5533f0426715692e70c4fe00d2ac5b5eaf89470",
+      "ozama": "sha256:7ebdd5ff900ec583ca1f1c559875a73c044d9d3aca683fb58fe1d544e7cd3703"
+    }
+  },
+  "operationalPorts": {
+    "requiredFree": [
+      3000,
+      4000
+    ],
+    "before": [
+      {
+        "port": 3000,
+        "acceptingConnections": false
+      },
+      {
+        "port": 4000,
+        "acceptingConnections": false
+      }
+    ],
+    "after": [
+      {
+        "port": 3000,
+        "acceptingConnections": false
+      },
+      {
+        "port": 4000,
+        "acceptingConnections": false
+      }
+    ],
+    "api": 59780,
+    "browserHarness": 59781,
+    "reservedPortsUsedByScenario": false
+  },
+  "ephemeralCleanup": {
+    "databaseCount": 0,
+    "roleCount": 0,
+    "databasesAbsent": true,
+    "rolesAbsent": true
+  },
+  "globalEphemeralResources": {
+    "before": {
+      "matchedTenantDatabaseCount": 2,
+      "matchedTenantRoleCount": 4,
+      "ephemeralControlDatabaseCount": 0,
+      "unroutedTenantDatabaseCount": 0,
+      "unroutedTenantRoleCount": 0,
+      "orphanDatabaseCount": 0,
+      "orphanRoleCount": 0,
+      "databasesAbsent": true,
+      "rolesAbsent": true
+    },
+    "after": {
+      "matchedTenantDatabaseCount": 2,
+      "matchedTenantRoleCount": 4,
+      "ephemeralControlDatabaseCount": 0,
+      "unroutedTenantDatabaseCount": 0,
+      "unroutedTenantRoleCount": 0,
+      "orphanDatabaseCount": 0,
+      "orphanRoleCount": 0,
+      "databasesAbsent": true,
+      "rolesAbsent": true
+    }
+  },
+  "clusterCatalog": {
+    "before": {
+      "digest": "sha256:56c488402bb4f1dc39415557855873330dbb77fac255a7e716d836037b59ceda",
+      "databaseCount": 6,
+      "roleCount": 23,
+      "membershipCount": 3
+    },
+    "after": {
+      "digest": "sha256:56c488402bb4f1dc39415557855873330dbb77fac255a7e716d836037b59ceda",
+      "databaseCount": 6,
+      "roleCount": 23,
+      "membershipCount": 3
+    }
+  },
+  "completedAt": "2026-09-14T10:55:43.495Z"
+}

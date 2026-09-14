@@ -1,0 +1,146 @@
+export const NON_SENSITIVE_REASON_CODE_PATTERN = /^[A-Z][A-Z0-9_]{2,63}$/u;
+
+export const MEMBER_ARCHIVE_REASON_CODES = [
+  "RECORD_LIFECYCLE_CHANGE",
+  "DUPLICATE_RECORD",
+  "ADMINISTRATIVE_CORRECTION",
+  "RETENTION_POLICY",
+] as const;
+
+export const MEMBER_REACTIVATE_REASON_CODES = [
+  "RECORD_LIFECYCLE_CHANGE",
+  "ARCHIVE_REVERSED",
+  "ADMINISTRATIVE_CORRECTION",
+] as const;
+
+export const ROUND_CLOSE_REASON_CODES = ["ALL_FROZEN_ELECTORS_RESPONDED"] as const;
+
+export const REPORT_CORRECTION_REASON_CODES = [
+  "SOURCE_DATA_CORRECTED",
+  "TRANSLATION_CORRECTED",
+  "STRUCTURE_CORRECTED",
+  "LAYOUT_CORRECTED",
+  "AUTHORIZED_CORRECTION",
+] as const;
+
+export type ReportCorrectionReasonCode = (typeof REPORT_CORRECTION_REASON_CODES)[number];
+
+export const OFFICE_PROCESS_APPLICABILITY_REASON_CODE_BY_ENABLED = {
+  false: "CYCLE_STRUCTURE_NOT_APPLICABLE",
+  true: "CYCLE_STRUCTURE_APPLICABILITY_RESTORED",
+} as const;
+
+export const OFFICE_PROCESS_APPLICABILITY_REASON_CODES = [
+  OFFICE_PROCESS_APPLICABILITY_REASON_CODE_BY_ENABLED.false,
+  OFFICE_PROCESS_APPLICABILITY_REASON_CODE_BY_ENABLED.true,
+] as const;
+
+export const CUSTODY_KEY_REVOKE_REASON_CODES = [
+  "DEVICE_RETIRED",
+  "DEVICE_REPLACED",
+  "SECURITY_RESPONSE",
+  "VERIFIED_KEY_LOSS",
+] as const;
+
+export const KEY_GRANT_REVOKE_REASON_CODES = [
+  "DEVICE_RETIRED",
+  "DEVICE_REPLACED",
+  "ACCESS_REMOVED",
+  "SECURITY_RESPONSE",
+] as const;
+
+export const KEY_ROTATION_REASON_CODES = [
+  "SCHEDULED_ROTATION",
+  "DEVICE_ROSTER_CHANGED",
+  "SECURITY_RESPONSE",
+  "RECOVERY_REKEY",
+] as const;
+
+export const KEY_LOSS_REASON_CODES = [
+  "RECOVERY_MATERIAL_UNAVAILABLE",
+  "AUTHORIZED_DEVICES_UNAVAILABLE",
+  "VERIFIED_RECOVERY_FAILURE",
+] as const;
+
+export const INVITATION_REVOKE_REASON_CODES = [
+  "ADMIN_ACCESS_REVOCATION",
+  "SECURITY_RESPONSE",
+  "INVITATION_REPLACED",
+] as const;
+
+export const SESSION_DECISION_CODES = [
+  "RESOLUTION",
+  "AGREEMENT",
+  "INFORMATION_NOTED",
+  "ITEM_DEFERRED",
+  "ITEM_REJECTED",
+] as const;
+
+export const SESSION_DECISION_CODES_BY_OUTCOME = {
+  APPROVED: ["RESOLUTION", "AGREEMENT"],
+  REJECTED: ["ITEM_REJECTED"],
+  DEFERRED: ["ITEM_DEFERRED"],
+  RECORDED: ["INFORMATION_NOTED"],
+} as const;
+
+export const ELIGIBILITY_PAUSE_REASON_CODE_BY_RESOLUTION = {
+  ANNUL_AND_RESTART: "ELIGIBILITY_ROUND_RESTARTED",
+  RESUME_UNCHANGED: "ELIGIBILITY_PROCESS_RESUMED",
+  EXCLUDE_AND_REVIEW: "ELIGIBILITY_CANDIDACIES_EXCLUDED",
+  CLOSE_AFTER_REPLACEMENT: "ELIGIBILITY_REPLACEMENT_COMPLETED",
+} as const;
+
+export const ELIGIBILITY_PAUSE_REASON_CODES = [
+  ELIGIBILITY_PAUSE_REASON_CODE_BY_RESOLUTION.ANNUL_AND_RESTART,
+  ELIGIBILITY_PAUSE_REASON_CODE_BY_RESOLUTION.RESUME_UNCHANGED,
+  ELIGIBILITY_PAUSE_REASON_CODE_BY_RESOLUTION.EXCLUDE_AND_REVIEW,
+  ELIGIBILITY_PAUSE_REASON_CODE_BY_RESOLUTION.CLOSE_AFTER_REPLACEMENT,
+] as const;
+
+export const CANDIDACY_REVIEW_REASON_CODE_BY_STATE = {
+  UNDER_REVIEW: "REVIEW_STARTED",
+  PRELIMINARY_ACCEPTED: "REVIEW_ACCEPTED",
+  WITHDRAWN: "CANDIDATE_WITHDREW",
+  EXCLUDED: "COMMITTEE_EXCLUDED",
+  INELIGIBLE: "ELIGIBILITY_FAILED",
+} as const;
+
+export const CANDIDACY_REVIEW_REASON_CODES = [
+  CANDIDACY_REVIEW_REASON_CODE_BY_STATE.UNDER_REVIEW,
+  CANDIDACY_REVIEW_REASON_CODE_BY_STATE.PRELIMINARY_ACCEPTED,
+  CANDIDACY_REVIEW_REASON_CODE_BY_STATE.WITHDRAWN,
+  CANDIDACY_REVIEW_REASON_CODE_BY_STATE.EXCLUDED,
+  CANDIDACY_REVIEW_REASON_CODE_BY_STATE.INELIGIBLE,
+] as const;
+
+export const ASSIGNMENT_FINALIZATION_REASON_CODES = [
+  "TERM_COMPLETED_NO_VACANCY",
+  "TERM_COMPLETED_OPEN_VACANCY",
+] as const;
+
+export const ASSIGNMENT_SUBSTITUTION_REASON_CODES = ["ASSIGNMENT_REPLACED"] as const;
+
+/**
+ * Returns the canonical, non-sensitive audit code or null when a caller tries
+ * to send prose. Human or sensitive justification belongs in an encrypted
+ * evidence envelope, never in an operational reason column or audit payload.
+ */
+export function normalizeNonSensitiveReasonCode(value: string): string | null {
+  const normalized = value.trim();
+  return NON_SENSITIVE_REASON_CODE_PATTERN.test(normalized) ? normalized : null;
+}
+
+/**
+ * Applies both the transport format and the operation-specific vocabulary.
+ * A generic uppercase token is not sufficient: otherwise callers could encode
+ * sensitive prose as a sequence of words joined by underscores.
+ */
+export function normalizeAllowedReasonCode<const Allowed extends readonly string[]>(
+  value: string,
+  allowed: Allowed,
+): Allowed[number] | null {
+  const normalized = normalizeNonSensitiveReasonCode(value);
+  return normalized && (allowed as readonly string[]).includes(normalized)
+    ? normalized as Allowed[number]
+    : null;
+}

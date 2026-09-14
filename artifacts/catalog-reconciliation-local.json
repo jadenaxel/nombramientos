@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-09-13T19:12:43.700Z",
+  "scope": "protected local PostgreSQL 18 cluster on 127.0.0.1:55432; Demo and Ozama only",
+  "servicesStoppedDuringApply": true,
+  "result": "passed",
+  "overallPass": true,
+  "catalogTarget": {
+    "version": "2025.1.0",
+    "departmentCount": 29,
+    "officeCount": 67,
+    "catalogSha256": "sha256:c41426801200251a88b90c8d3dfc6f3f158332c3158e77adf1b4bd72e90c6fb8"
+  },
+  "tenants": {
+    "demo": {
+      "tenantId": "d0000000-0000-4000-8000-000000000001",
+      "lifecycle": "active",
+      "maintenanceClass": "routable",
+      "backupDrill": {
+        "backupId": "87d8679f-1c19-4a75-a008-82e2f34f580f",
+        "status": "passed",
+        "restoredInvariantMatches": true,
+        "otherTenantUnchanged": true,
+        "scratchRemoved": true,
+        "rpoTargetMet": true,
+        "rtoTargetMet": true
+      },
+      "preflight": {
+        "status": "approval_required",
+        "pendingMigrationCount": 0,
+        "catalogMismatchCount": 3,
+        "backupPayloadSha256": "sha256:e934858d8dc948302b6f539f3a2bcd86045c7471837c28fb3988845246335b9f",
+        "securityTargetSha256": "sha256:bd14a0b976bf6d1a8c08c2c9c7de7af126971fa8e2eeec5797aee74a769e17c8",
+        "approvalDigest": "sha256:6646de968834171482cc9f172b92c7b97718512608c8528257d4f4d0a0aa67b1"
+      },
+      "apply": {
+        "status": "applied",
+        "appliedMigrationCount": 0,
+        "catalogReconciled": true,
+        "catalogMutationCount": 71,
+        "catalogMismatchCount": 0,
+        "runtimeGrantsReconciled": true
+      },
+      "idempotencyPreflight": {
+        "status": "no_changes",
+        "catalogMismatchCount": 0,
+        "catalogReconciliationRequired": false
+      },
+      "postState": {
+        "migrationCount": 35,
+        "memberCount": 180,
+        "eligibleMemberCount": 150,
+        "catalogMismatchCount": 0,
+        "ownershipMismatchCount": 0,
+        "runtimeGrantMismatchCount": 0
+      }
+    },
+    "ozama": {
+      "tenantId": "0a2a0000-0000-4000-8000-000000000001",
+      "lifecycle": "provisioning",
+      "maintenanceClass": "pending_activation",
+      "backupDrill": {
+        "backupId": "802b587c-606b-4051-90e9-995b7f0e071d",
+        "status": "passed",
+        "restoredInvariantMatches": true,
+        "otherTenantUnchanged": true,
+        "scratchRemoved": true,
+        "rpoTargetMet": true,
+        "rtoTargetMet": true
+      },
+      "preflight": {
+        "status": "approval_required",
+        "pendingMigrationCount": 0,
+        "catalogMismatchCount": 3,
+        "backupPayloadSha256": "sha256:0f99af6ac7accdd308bbf3b538457252f3fd753ab434372d7e5fca4f1fc6736b",
+        "securityTargetSha256": "sha256:e0f07ea51bdfaafb4b7528ffff02543cd9c52c1fe73a40e53885a4423066704c",
+        "approvalDigest": "sha256:d03c4ff4ccc7867584e3d488b5b85434dfbfe523669490a22c4cd1cca977ff16"
+      },
+      "apply": {
+        "status": "applied",
+        "appliedMigrationCount": 0,
+        "catalogReconciled": true,
+        "catalogMutationCount": 71,
+        "catalogMismatchCount": 0,
+        "runtimeGrantsReconciled": true
+      },
+      "idempotencyPreflight": {
+        "status": "no_changes",
+        "catalogMismatchCount": 0,
+        "catalogReconciliationRequired": false
+      },
+      "postState": {
+        "migrationCount": 35,
+        "operationalTableCount": 46,
+        "operationalRowCount": 0,
+        "catalogMismatchCount": 0,
+        "ownershipMismatchCount": 0,
+        "runtimeGrantMismatchCount": 0
+      }
+    }
+  },
+  "localStatePostApply": {
+    "schemaVersion": 2,
+    "checkedAt": "2026-09-13T19:12:43.700Z",
+    "pass": true,
+    "mismatchCount": 0
+  },
+  "limitations": [
+    "The session guard is not an absolute PostgreSQL connection fence; stopped application services and an exclusive maintenance window remain required.",
+    "This local reconciliation does not grant denominational, jurisdictional, legal, accessibility, cryptographic, or production certification."
+  ]
+}

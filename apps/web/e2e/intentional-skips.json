@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "policy": "Each listed test must run and pass on desktop-chromium-es and may be skipped only on the other projects active in the current Playwright run.",
+  "runProject": "desktop-chromium-es",
+  "entries": [
+    {
+      "file": "apps/web/e2e/accessibility-pwa.spec.ts",
+      "title": "persistent accessibility controls reflow at 320px and the PWA caches public assets only",
+      "reason": "One real Chromium ceremony avoids concurrent preference writes"
+    },
+    {
+      "file": "apps/web/e2e/acceptance-closure.spec.ts",
+      "title": "AC-08 browser previews create, update and skip while retaining an accent-insensitive homonym",
+      "reason": "One deterministic mocked commit avoids persistent roster growth"
+    },
+    {
+      "file": "apps/web/e2e/acceptance-closure.spec.ts",
+      "title": "AC-09 restricted committee browser receives redacted members and cannot export",
+      "reason": "The real restricted Demo identity is exercised once"
+    },
+    {
+      "file": "apps/web/e2e/acceptance-closure.spec.ts",
+      "title": "AC-18 browser presents zero-vote, single-candidate, tie, top-K and cutoff-tie outcomes without writes",
+      "reason": "Deterministic read-only aggregate projections run once"
+    },
+    {
+      "file": "apps/web/e2e/acceptance-closure.spec.ts",
+      "title": "AC-20 live browser responses are no-store and the SSE ready frame is metadata-only",
+      "reason": "One live network inspection is sufficient"
+    },
+    {
+      "file": "apps/web/e2e/analytics.spec.ts",
+      "title": "renders charts and their table alternatives without mutation requests",
+      "reason": "One read-only browser is sufficient for the persisted aggregate contract"
+    },
+    {
+      "file": "apps/web/e2e/custody-ceremony.spec.ts",
+      "title": "custodian creates, restores and revokes an encrypted device backup without browser persistence",
+      "reason": "One browser ceremony is sufficient; custody writes are synthetic and leave Demo unchanged"
+    },
+    {
+      "file": "apps/web/e2e/demo-flow.spec.ts",
+      "title": "authorized browser generates valid PDF, XLSX and CSV artifacts locally",
+      "reason": "One isolated client ceremony validates every downloadable report format"
+    },
+    {
+      "file": "apps/web/e2e/import-worker.spec.ts",
+      "title": "large roster inspection and preview stay off the browser main thread",
+      "reason": "One mandatory browser proves the dedicated-worker boundary"
+    },
+    {
+      "file": "apps/web/e2e/management-flows.spec.ts",
+      "title": "member administration edits encrypted data and projects archive/reactivation without Demo writes",
+      "reason": "One synthetic browser management scenario covers the member lifecycle without changing Demo"
+    },
+    {
+      "file": "apps/web/e2e/management-flows.spec.ts",
+      "title": "local catalog extension create, edit, disable and reactivate are projected without Demo writes",
+      "reason": "One synthetic browser management scenario covers catalog lifecycle without changing Demo"
+    },
+    {
+      "file": "apps/web/e2e/photo-flow.spec.ts",
+      "title": "authorized Chromium normalizes, encrypts, displays and archives a photo without sending original bytes",
+      "reason": "One real Chromium execution is sufficient; photo writes are synthetic and leave Demo unchanged"
+    },
+    {
+      "file": "apps/web/e2e/resilience-races.spec.ts",
+      "title": "offline draft is revalidated against a closed round before submission",
+      "reason": "Exercises the local demo race once without mutating tenant data"
+    },
+    {
+      "file": "apps/web/e2e/resilience-races.spec.ts",
+      "title": "tampered candidate ciphertext fails closed in the browser",
+      "reason": "Exercises one authenticated browser and never persists plaintext or secrets"
+    },
+    {
+      "file": "apps/web/e2e/role-access.spec.ts",
+      "title": "secretary Demo identity enforces role-specific UI and API boundaries",
+      "reason": "One real Chromium role matrix avoids redundant MFA traffic"
+    },
+    {
+      "file": "apps/web/e2e/role-access.spec.ts",
+      "title": "committee Demo identity enforces role-specific UI and API boundaries",
+      "reason": "One real Chromium role matrix avoids redundant MFA traffic"
+    },
+    {
+      "file": "apps/web/e2e/role-access.spec.ts",
+      "title": "custodian Demo identity enforces role-specific UI and API boundaries",
+      "reason": "One real Chromium role matrix avoids redundant MFA traffic"
+    },
+    {
+      "file": "apps/web/e2e/role-access.spec.ts",
+      "title": "auditor Demo identity enforces role-specific UI and API boundaries",
+      "reason": "One real Chromium role matrix avoids redundant MFA traffic"
+    }
+  ]
+}

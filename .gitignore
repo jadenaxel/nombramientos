@@ -1,0 +1,48 @@
+# Dependencies and builds
+node_modules/
+**/node_modules/
+.pnpm-store/
+.next/
+**/.next/
+dist/
+**/dist/
+coverage/
+**/coverage/
+*.tsbuildinfo
+tmp/
+
+# Local runtime data and secrets (never commit)
+.env
+.env.*
+!.env.example
+**/.local/
+**/.local-*/
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+*.jks
+*.keystore
+.envrc
+**/.envrc
+credentials*.json
+**/credentials*.json
+secrets*.json
+**/secrets*.json
+
+# Test and runtime evidence
+test-results/
+playwright-report/
+**/test-results/
+**/playwright-report/
+*.log
+*.pid
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

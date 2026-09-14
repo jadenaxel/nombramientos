@@ -1,0 +1,202 @@
+name: ${COMPOSE_PROJECT_NAME:?Set COMPOSE_PROJECT_NAME through a reviewed container environment file}
+
+x-app-image: &app-image
+  image: ${NOMBRAMIENTOS_CONTAINER_IMAGE:?Set NOMBRAMIENTOS_CONTAINER_IMAGE}
+  build:
+    context: .
+    dockerfile: Dockerfile
+    args:
+      NEXT_PUBLIC_API_URL: ${NOMBRAMIENTOS_BROWSER_API_URL:?Set NOMBRAMIENTOS_BROWSER_API_URL}
+  init: true
+  network_mode: "service:postgres"
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=1000,gid=1000,mode=0700
+
+x-runtime-environment: &runtime-environment
+  NOMBRAMIENTOS_CONTAINER_ENVIRONMENT: ${NOMBRAMIENTOS_CONTAINER_ENVIRONMENT:?Set NOMBRAMIENTOS_CONTAINER_ENVIRONMENT}
+  NOMBRAMIENTOS_POSTGRES_HOST: "127.0.0.1"
+  NOMBRAMIENTOS_POSTGRES_PORT: "55432"
+  NOMBRAMIENTOS_POSTGRES_ADMIN_PASSWORD_FILE: /run/secrets/postgres_admin_password
+  NOMBRAMIENTOS_CONTROL_PASSWORD_FILE: /run/secrets/control_password
+  NOMBRAMIENTOS_DATABASE_MASTER_KEY_FILE: /run/secrets/database_master_key
+  NOMBRAMIENTOS_AUTH_KEY_FILE: /run/secrets/auth_key
+  DATABASE_LOCAL_INSTALL_FILE: /workspace/packages/database/.local/private-unavailable/install.json
+  DATABASE_SECRET_FILE: /workspace/packages/database/.local/runtime/secrets.enc.json
+  DATABASE_POOL_MAX_PER_TENANT: "3"
+  DATABASE_POOL_IDLE_MS: "60000"
+  API_HOST: "127.0.0.1"
+  API_PORT: "4000"
+  API_CORS_ORIGINS: ${NOMBRAMIENTOS_BROWSER_ORIGINS:?Set NOMBRAMIENTOS_BROWSER_ORIGINS}
+  API_COOKIE_SECURE: "false"
+  API_SESSION_TTL_SECONDS: "28800"
+
+services:
+  postgres:
+    image: postgres:18.6-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nom_admin
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin_password
+      PGPORT: "55432"
+    command:
+      - postgres
+      - -c
+      - port=55432
+      - -c
+      - password_encryption=scram-sha-256
+    secrets:
+      - postgres_admin_password
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:${NOMBRAMIENTOS_HOST_DATABASE_PORT:?Set NOMBRAMIENTOS_HOST_DATABASE_PORT}:55432"
+      - "127.0.0.1:${NOMBRAMIENTOS_HOST_WEB_PORT:?Set NOMBRAMIENTOS_HOST_WEB_PORT}:${NOMBRAMIENTOS_HOST_WEB_PORT}"
+      - "127.0.0.1:${NOMBRAMIENTOS_HOST_API_PORT:?Set NOMBRAMIENTOS_HOST_API_PORT}:${NOMBRAMIENTOS_HOST_API_PORT}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nom_admin -d postgres -p 55432"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    stop_grace_period: 30s
+
+  bootstrap:
+    <<: *app-image
+    command: ["bootstrap"]
+    restart: "no"
+    read_only: true
+    environment:
+      <<: *runtime-environment
+      NODE_ENV: ${NOMBRAMIENTOS_NODE_ENV:?Set NOMBRAMIENTOS_NODE_ENV}
+      DATABASE_LOCAL_INSTALL_FILE: /workspace/packages/database/.local/install.json
+    secrets:
+      - postgres_admin_password
+      - control_password
+      - database_master_key
+      - auth_key
+    volumes:
+      - bootstrap-private:/workspace/packages/database/.local
+      - runtime-secrets:/workspace/packages/database/.local/runtime
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *app-image
+    command: ["api"]
+    restart: unless-stopped
+    read_only: true
+    environment:
+      <<: *runtime-environment
+      NODE_ENV: ${NOMBRAMIENTOS_NODE_ENV:?Set NOMBRAMIENTOS_NODE_ENV}
+    secrets:
+      - control_password
+      - database_master_key
+      - auth_key
+    volumes:
+      - runtime-secrets:/workspace/packages/database/.local/runtime:ro
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    stop_grace_period: 20s
+
+  worker:
+    <<: *app-image
+    command: ["worker"]
+    restart: unless-stopped
+    read_only: true
+    environment:
+      <<: *runtime-environment
+      NODE_ENV: ${NOMBRAMIENTOS_NODE_ENV:?Set NOMBRAMIENTOS_NODE_ENV}
+      DATABASE_LOCAL_INSTALL_FILE: /workspace/packages/database/.local/install.json
+    secrets:
+      - postgres_admin_password
+      - control_password
+      - database_master_key
+    volumes:
+      - bootstrap-private:/workspace/packages/database/.local
+      - runtime-secrets:/workspace/packages/database/.local/runtime
+      - worker-state:/workspace/.local
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "scripts/container-entrypoint.mjs", "check-worker"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    stop_grace_period: 30s
+
+  web:
+    <<: *app-image
+    command: ["web"]
+    restart: unless-stopped
+    read_only: true
+    environment:
+      NOMBRAMIENTOS_CONTAINER_ENVIRONMENT: ${NOMBRAMIENTOS_CONTAINER_ENVIRONMENT:?Set NOMBRAMIENTOS_CONTAINER_ENVIRONMENT}
+      NOMBRAMIENTOS_WEB_HOST: "127.0.0.1"
+      NOMBRAMIENTOS_WEB_PORT: "3000"
+      NEXT_PUBLIC_API_URL: ${NOMBRAMIENTOS_BROWSER_API_URL:?Set NOMBRAMIENTOS_BROWSER_API_URL}
+      NODE_ENV: production
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz',{redirect:'error'}).then(async r=>{if(!r.ok||(await r.json()).status!=='ok')process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    stop_grace_period: 20s
+
+  edge:
+    <<: *app-image
+    command: ["edge"]
+    restart: unless-stopped
+    read_only: true
+    environment:
+      NOMBRAMIENTOS_CONTAINER_ENVIRONMENT: ${NOMBRAMIENTOS_CONTAINER_ENVIRONMENT:?Set NOMBRAMIENTOS_CONTAINER_ENVIRONMENT}
+      NOMBRAMIENTOS_EDGE_WEB_PORT: ${NOMBRAMIENTOS_HOST_WEB_PORT:?Set NOMBRAMIENTOS_HOST_WEB_PORT}
+      NOMBRAMIENTOS_EDGE_API_PORT: ${NOMBRAMIENTOS_HOST_API_PORT:?Set NOMBRAMIENTOS_HOST_API_PORT}
+    depends_on:
+      api:
+        condition: service_healthy
+      worker:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "scripts/container-entrypoint.mjs", "check-edge"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    stop_grace_period: 20s
+
+volumes:
+  postgres-data:
+  bootstrap-private:
+  runtime-secrets:
+  worker-state:
+
+secrets:
+  postgres_admin_password:
+    file: ${NOMBRAMIENTOS_CONTAINER_STATE_DIR:?Set NOMBRAMIENTOS_CONTAINER_STATE_DIR}/secrets/postgres_admin_password
+  control_password:
+    file: ${NOMBRAMIENTOS_CONTAINER_STATE_DIR:?Set NOMBRAMIENTOS_CONTAINER_STATE_DIR}/secrets/control_password
+  database_master_key:
+    file: ${NOMBRAMIENTOS_CONTAINER_STATE_DIR:?Set NOMBRAMIENTOS_CONTAINER_STATE_DIR}/secrets/database_master_key
+  auth_key:
+    file: ${NOMBRAMIENTOS_CONTAINER_STATE_DIR:?Set NOMBRAMIENTOS_CONTAINER_STATE_DIR}/secrets/auth_key

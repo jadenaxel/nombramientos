@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "scannerVersion": 2,
+  "scope": "delivery",
+  "pass": true,
+  "fileCount": 1187,
+  "textFileCount": 1176,
+  "binaryFileCount": 11,
+  "archiveEntryCount": 20,
+  "bytesScanned": 25725241,
+  "manifestSha256": "99ea964df33be1c681c4e27cb3beab9075e93fd5a6aa0670becd8dd5569cc4c7",
+  "roots": [
+    {
+      "label": "api-dist",
+      "path": "apps/api/dist",
+      "required": true,
+      "present": true,
+      "fileCount": 228
+    },
+    {
+      "label": "web-standalone",
+      "path": "apps/web/.next/standalone",
+      "required": true,
+      "present": true,
+      "fileCount": 242
+    },
+    {
+      "label": "catalog-dist",
+      "path": "packages/catalog/dist",
+      "required": true,
+      "present": true,
+      "fileCount": 32
+    },
+    {
+      "label": "database-dist",
+      "path": "packages/database/dist",
+      "required": true,
+      "present": true,
+      "fileCount": 548
+    },
+    {
+      "label": "domain-dist",
+      "path": "packages/domain/dist",
+      "required": true,
+      "present": true,
+      "fileCount": 40
+    },
+    {
+      "label": "e2ee-dist",
+      "path": "packages/e2ee/dist",
+      "required": true,
+      "present": true,
+      "fileCount": 40
+    },
+    {
+      "label": "i18n-dist",
+      "path": "packages/i18n/dist",
+      "required": true,
+      "present": true,
+      "fileCount": 24
+    },
+    {
+      "label": "evidence",
+      "path": "docs/evidence",
+      "required": false,
+      "present": true,
+      "fileCount": 10
+    },
+    {
+      "label": "verification-artifacts",
+      "path": "artifacts",
+      "required": false,
+      "present": true,
+      "fileCount": 23
+    }
+  ],
+  "exclusions": {
+    "dependencyCacheOrRuntimeDirectoryCount": 5,
+    "ephemeralFileCount": 2,
+    "localSecretDirectoriesRead": 0
+  },
+  "piiPolicy": {
+    "evaluatedMatchCount": 131,
+    "reservedSyntheticMatchCount": 127,
+    "explicitAllowlistMatchCount": 4,
+    "reservedSyntheticEmailHostnames": [
+      "localhost",
+      "nombramientos.local",
+      "example.com",
+      "example.net",
+      "example.org"
+    ],
+    "reservedSyntheticEmailSuffixes": [
+      ".local",
+      ".invalid",
+      ".test",
+      ".example"
+    ],
+    "explicitAllowlist": [
+      {
+        "id": "PNPM_LOCK_PUBLIC_GLOB_MAINTAINER_CONTACT",
+        "kind": "email",
+        "reason": "Public third-party maintainer contact embedded in a dependency deprecation notice.",
+        "pathScope": "pnpm-lock.yaml",
+        "matchedCount": 0,
+        "valueFingerprint": "sha256:b0373516d594ddd199b25c3655332b354837e065c5cc232f5043189897900ca7"
+      },
+      {
+        "id": "EXCELJS_PUBLIC_CONTACT_1_IN_WEB_BUNDLE",
+        "kind": "email",
+        "reason": "Public third-party contact reproduced byte-for-byte from the pinned exceljs@4.4.0 browser bundle.",
+        "pathScope": [
+          "apps/web/.next/standalone/apps/web/.next/server/chunks/",
+          "apps/web/.next/standalone/apps/web/.next/static/chunks/"
+        ],
+        "matchedCount": 2,
+        "valueFingerprint": "sha256:3de132cd98be7bf26b6f08e81c31c799a891bc32046b61f0b6fe3671ca2e44b5"
+      },
+      {
+        "id": "EXCELJS_PUBLIC_CONTACT_2_IN_WEB_BUNDLE",
+        "kind": "email",
+        "reason": "Public third-party contact reproduced byte-for-byte from the pinned exceljs@4.4.0 browser bundle.",
+        "pathScope": [
+          "apps/web/.next/standalone/apps/web/.next/server/chunks/",
+          "apps/web/.next/standalone/apps/web/.next/static/chunks/"
+        ],
+        "matchedCount": 2,
+        "valueFingerprint": "sha256:41bdb9a15c1ff55374e8af8ef433882779105f437d21f143e0c9b5939544d860"
+      }
+    ]
+  },
+  "findings": [],
+  "coverage": {
+    "text": "full content",
+    "zipAndXlsx": "entry names and inflated entry content",
+    "pdf": "raw bytes and FlateDecode streams",
+    "png": "raw bytes and textual metadata chunks",
+    "otherBinary": "raw ASCII and UTF-16LE strings",
+    "limitation": "Rasterized text in image pixels is not OCR-scanned; encrypted or unsupported archive content fails closed."
+  },
+  "scannedAtUtc": "2026-09-14T11:04:18.968Z"
+}

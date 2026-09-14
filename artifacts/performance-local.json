@@ -1,0 +1,257 @@
+{
+  "schemaVersion": 3,
+  "acceptanceCriterion": "AC-37",
+  "startedAtUtc": "2026-09-13T03:12:09.182Z",
+  "completedAtUtc": "2026-09-13T03:12:12.482Z",
+  "status": "passed",
+  "inProgress": false,
+  "environment": {
+    "dateUtc": "2026-09-13T03:12:10.578Z",
+    "hardware": {
+      "cpuModel": "12th Gen Intel(R) Core(TM) i9-12900H",
+      "logicalCpuCount": 20,
+      "totalMemoryGiB": 15.736
+    },
+    "operatingSystem": {
+      "platform": "win32",
+      "release": "10.0.26200",
+      "arch": "x64"
+    },
+    "runtime": {
+      "node": "v24.19.0",
+      "v8": "13.6.233.17-node.51",
+      "fastify": "5.12.1",
+      "postgresql": "18.6"
+    },
+    "network": {
+      "transport": "HTTP over loopback TCP",
+      "tls": false,
+      "proxy": false,
+      "postgresqlUsesNonDefaultPort": true
+    }
+  },
+  "dataset": {
+    "isolation": "ephemeral tenant/database/owner-role/runtime-role; exact-name cleanup",
+    "tenantKind": "synthetic temporary demo-schema tenant",
+    "protectedTenantDatabasesTouched": 0,
+    "protectedControlDatabaseTemporaryRows": true,
+    "protectedControlDatabaseRestorationRequiredForPass": true,
+    "electors": 100,
+    "authenticatedSessions": 100,
+    "tenantRolePerElector": "COMMITTEE_MEMBER",
+    "rounds": 1,
+    "roundKind": "proposal",
+    "candidates": 1,
+    "uniqueConcurrentSubmissions": 100,
+    "concurrentDashboardGets": 100,
+    "concurrentMemberListGets": 100
+  },
+  "thresholds": {
+    "acknowledgementP95MsExclusive": 1500,
+    "readP95MsExclusive": 2000,
+    "unexpectedFailures": 0,
+    "requiredSubmissions": 100,
+    "requiredReceipts": 100
+  },
+  "overallPass": true,
+  "deviations": [],
+  "submissions": {
+    "transport": "real loopback TCP HTTP",
+    "concurrency": 100,
+    "uniqueRequests": 100,
+    "metrics": {
+      "count": 100,
+      "wallMs": 808.623,
+      "throughputRequestsPerSecond": 123.667,
+      "p50Ms": 653.451,
+      "p95Ms": 777.818,
+      "p99Ms": 788.872,
+      "maxMs": 790.595
+    },
+    "statusCounts": {
+      "201": 100
+    },
+    "errorCodeCounts": {
+      "none": 100
+    },
+    "unexpectedFailures": 0,
+    "responseValidationFailures": 0,
+    "integrity": {
+      "electors": 100,
+      "submissions": 100,
+      "distinctSubmissionElectors": 100,
+      "distinctSubmissionContentHashes": 100,
+      "receipts": 100,
+      "distinctReceiptSubmissions": 100,
+      "distinctReceiptElectors": 100,
+      "receiptsReturnedByApi": 100,
+      "idempotencyRecords": 100,
+      "auditEvents": 100,
+      "outboxEvents": 100,
+      "pass": true
+    },
+    "budgetPass": true,
+    "pass": true
+  },
+  "reads": {
+    "transport": "real loopback TCP HTTP GET",
+    "concurrency": 200,
+    "totalRequests": 200,
+    "dashboard": {
+      "metrics": {
+        "count": 100,
+        "wallMs": 516.604,
+        "throughputRequestsPerSecond": 193.572,
+        "p50Ms": 433.064,
+        "p95Ms": 513.199,
+        "p99Ms": 514.563,
+        "maxMs": 514.709
+      },
+      "statusCounts": {
+        "200": 100
+      },
+      "errorCodeCounts": {
+        "none": 100
+      },
+      "unexpectedFailures": 0,
+      "responseValidationFailures": 0
+    },
+    "memberList": {
+      "metrics": {
+        "count": 100,
+        "wallMs": 516.604,
+        "throughputRequestsPerSecond": 193.572,
+        "p50Ms": 472.414,
+        "p95Ms": 486.761,
+        "p99Ms": 489.093,
+        "maxMs": 489.914
+      },
+      "statusCounts": {
+        "200": 100
+      },
+      "errorCodeCounts": {
+        "none": 100
+      },
+      "unexpectedFailures": 0,
+      "responseValidationFailures": 0
+    },
+    "combined": {
+      "metrics": {
+        "count": 200,
+        "wallMs": 516.604,
+        "throughputRequestsPerSecond": 387.144,
+        "p50Ms": 462.011,
+        "p95Ms": 512.361,
+        "p99Ms": 513.993,
+        "maxMs": 514.709
+      },
+      "statusCounts": {
+        "200": 200
+      },
+      "errorCodeCounts": {
+        "none": 200
+      },
+      "unexpectedFailures": 0,
+      "responseValidationFailures": 0
+    },
+    "tenantBusinessStateUnchanged": true,
+    "note": "Session last-seen bookkeeping is outside the tenant business-state snapshot.",
+    "budgetPass": true,
+    "pass": true
+  },
+  "cleanup": {
+    "controlRows": 0,
+    "databases": 0,
+    "roles": 0,
+    "operationalControlBefore": {
+      "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+      "digest": "sha256:71ebf60379863c758405548af410982b9c2ca7bb3bb7d39fabede41763f9dc08",
+      "tables": 17,
+      "rows": 1783,
+      "schemaObjects": 6233
+    },
+    "operationalControlAfter": {
+      "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+      "digest": "sha256:71ebf60379863c758405548af410982b9c2ca7bb3bb7d39fabede41763f9dc08",
+      "tables": 17,
+      "rows": 1783,
+      "schemaObjects": 6233
+    },
+    "operationalControlUnchanged": true,
+    "protectedDatabasesBefore": {
+      "control": {
+        "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+        "digest": "sha256:71ebf60379863c758405548af410982b9c2ca7bb3bb7d39fabede41763f9dc08",
+        "tables": 17,
+        "rows": 1783,
+        "schemaObjects": 6233
+      },
+      "demo": {
+        "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+        "digest": "sha256:19a54d89bc6f050c095eafdabff7fece1e1bb0f829b9f6e7dc510841ad6628e3",
+        "tables": 53,
+        "rows": 2682,
+        "schemaObjects": 7832
+      },
+      "ozama": {
+        "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+        "digest": "sha256:234541c38b214b386df2568b1f269642e34da97b429aba1474aa098cb83bf7b4",
+        "tables": 53,
+        "rows": 227,
+        "schemaObjects": 7832
+      }
+    },
+    "protectedDatabasesAfter": {
+      "control": {
+        "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+        "digest": "sha256:71ebf60379863c758405548af410982b9c2ca7bb3bb7d39fabede41763f9dc08",
+        "tables": 17,
+        "rows": 1783,
+        "schemaObjects": 6233
+      },
+      "demo": {
+        "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+        "digest": "sha256:19a54d89bc6f050c095eafdabff7fece1e1bb0f829b9f6e7dc510841ad6628e3",
+        "tables": 53,
+        "rows": 2682,
+        "schemaObjects": 7832
+      },
+      "ozama": {
+        "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+        "digest": "sha256:234541c38b214b386df2568b1f269642e34da97b429aba1474aa098cb83bf7b4",
+        "tables": 53,
+        "rows": 227,
+        "schemaObjects": 7832
+      }
+    },
+    "protectedDatabasesUnchanged": true,
+    "ephemeralResourcesBefore": {
+      "inspectedDatabases": 2,
+      "inspectedRoles": 4,
+      "globalDatabaseCount": 6,
+      "globalRoleCount": 22,
+      "globalMembershipCount": 3,
+      "globalSharedDescriptionCount": 3,
+      "globalSharedSecurityLabelCount": 0,
+      "globalInventoryDigest": "sha256:90a008e8bd074baf164f947259731ae68c42ffb730959e6cfac2532c20b4804e",
+      "orphanDatabases": 0,
+      "orphanRoles": 0,
+      "pass": true
+    },
+    "ephemeralResourcesAfter": {
+      "inspectedDatabases": 2,
+      "inspectedRoles": 4,
+      "globalDatabaseCount": 6,
+      "globalRoleCount": 22,
+      "globalMembershipCount": 3,
+      "globalSharedDescriptionCount": 3,
+      "globalSharedSecurityLabelCount": 0,
+      "globalInventoryDigest": "sha256:90a008e8bd074baf164f947259731ae68c42ffb730959e6cfac2532c20b4804e",
+      "orphanDatabases": 0,
+      "orphanRoles": 0,
+      "pass": true
+    },
+    "globalInventoryUnchanged": true,
+    "pass": true
+  }
+}

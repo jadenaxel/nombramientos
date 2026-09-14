@@ -1,0 +1,64 @@
+{
+  "name": "@nombramientos/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "migrations",
+    "scripts"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:integration": "vitest run test/integration.test.ts",
+    "db:local": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/local-cluster.ps1",
+    "db:bootstrap": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/local-cluster.ps1 -Action bootstrap",
+    "db:start": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/local-cluster.ps1 -Action start",
+    "db:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/local-cluster.ps1 -Action stop",
+    "db:status": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/local-cluster.ps1 -Action status",
+    "db:backup:configure": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/backup-local.ps1 -Action configure",
+    "db:backup": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/backup-local.ps1 -Action backup",
+    "db:backup:demo": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/backup-local.ps1 -Action backup -TenantId d0000000-0000-4000-8000-000000000001",
+    "db:restore:drill": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/backup-local.ps1 -Action drill",
+    "db:restore:drill:demo": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/backup-local.ps1 -Action drill -TenantId d0000000-0000-4000-8000-000000000001",
+    "db:backup:key:rotate": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/backup-local.ps1 -Action rotate-key",
+    "db:migrate:control": "node dist/scripts/migrate-control.js",
+    "db:migrate:tenants": "node dist/scripts/migrate-tenants.js",
+    "db:grants:tenant": "node dist/scripts/reconcile-runtime-grants.js",
+    "db:provision": "node dist/scripts/provision-tenants.js",
+    "db:bootstrap:platform-admin": "node dist/scripts/issue-platform-admin-bootstrap.js",
+    "db:repair:demo-fixture:check": "pnpm run build && node ./scripts/repair-demo-fixture-artifact.mjs --check",
+    "db:verify:local-state": "node dist/scripts/verify-local-state.js",
+    "db:provision:worker": "node dist/scripts/process-provisioning-jobs.js",
+    "db:seed:demo": "node dist/scripts/seed-demo.js"
+  },
+  "dependencies": {
+    "@nombramientos/catalog": "workspace:*",
+    "@nombramientos/domain": "workspace:*",
+    "argon2": "0.44.0",
+    "otpauth": "9.4.1",
+    "pg": "8.16.3",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@nombramientos/e2ee": "workspace:*",
+    "@types/node": "24.10.1",
+    "@types/pg": "8.15.5",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  },
+  "engines": {
+    "node": ">=24.0.0 <25"
+  }
+}

@@ -1,0 +1,887 @@
+{
+  "schemaVersion": 3,
+  "acceptanceCriterion": "AC-37",
+  "startedAtUtc": "2026-09-13T03:16:20.875Z",
+  "completedAtUtc": "2026-09-13T03:16:45.510Z",
+  "status": "passed",
+  "inProgress": false,
+  "environment": {
+    "dateUtc": "2026-09-13T03:16:33.619Z",
+    "hardware": {
+      "cpuModel": "12th Gen Intel(R) Core(TM) i9-12900H",
+      "logicalCpuCount": 20,
+      "totalMemoryGiB": 15.736
+    },
+    "operatingSystem": {
+      "platform": "win32",
+      "release": "10.0.26200",
+      "arch": "x64"
+    },
+    "runtime": {
+      "node": "v24.19.0",
+      "v8": "13.6.233.17-node.51",
+      "fastify": "5.12.1",
+      "postgresql": "18.6"
+    },
+    "network": {
+      "transport": "HTTP and SSE over loopback TCP",
+      "tls": false,
+      "proxy": false,
+      "listeners": 10,
+      "postgresqlUsesNonDefaultPort": true
+    }
+  },
+  "dataset": {
+    "tenantCount": 10,
+    "participantsPerTenant": 50,
+    "authenticatedSessions": 500,
+    "membersPerTenant": 10000,
+    "membersTotal": 100000,
+    "roundsPerTenant": 1,
+    "roundKind": "proposal",
+    "realConcurrentHttpMutations": 500,
+    "realHttpReads": 1000,
+    "concurrentReaderSessions": 500,
+    "readsPerParticipant": 2,
+    "realConcurrentSseStreams": 10,
+    "isolation": "one isolated ephemeral control database and least-privilege runtime role plus ten isolated ephemeral tenant databases and runtime roles with exact-name cleanup",
+    "protectedOperationalTenantsTouched": 0,
+    "topology": "ten loopback Fastify listeners sharing one PostgreSQL cluster and one run-scoped ephemeral control plane",
+    "topologyReason": "preserves the production IP rate limiter while localhost represents every synthetic user as 127.0.0.1"
+  },
+  "thresholds": {
+    "acknowledgementP95MsExclusive": 1500,
+    "ssePropagationP95MsExclusive": 2000,
+    "representativeReadP95MsExclusive": 2000,
+    "unexpectedFailures": 0,
+    "requiredTenants": 10,
+    "requiredParticipantsPerTenant": 50,
+    "requiredMembersPerTenant": 10000
+  },
+  "overallPass": true,
+  "deviations": [
+    "local-loopback-multi-listener-topology-differs-from-a-production-proxy-and-single-public-endpoint",
+    "browser-side-initial-download-decryption-index-build-and-sub-300ms-local-search-not-measured-by-this-api-runner",
+    "tls-wan-loss-horizontal-scaling-and-production-observability-not-measured-locally"
+  ],
+  "setup": {
+    "totalWallMs": 11577.796,
+    "membersInserted": 100000,
+    "memberRowsPerSecond": 8637.222,
+    "perTenant": [
+      {
+        "tenant": "tenant-01",
+        "members": 10000,
+        "memberSeedMs": 636.304
+      },
+      {
+        "tenant": "tenant-02",
+        "members": 10000,
+        "memberSeedMs": 649.792
+      },
+      {
+        "tenant": "tenant-03",
+        "members": 10000,
+        "memberSeedMs": 642.142
+      },
+      {
+        "tenant": "tenant-04",
+        "members": 10000,
+        "memberSeedMs": 660.323
+      },
+      {
+        "tenant": "tenant-05",
+        "members": 10000,
+        "memberSeedMs": 584.476
+      },
+      {
+        "tenant": "tenant-06",
+        "members": 10000,
+        "memberSeedMs": 582.297
+      },
+      {
+        "tenant": "tenant-07",
+        "members": 10000,
+        "memberSeedMs": 645.271
+      },
+      {
+        "tenant": "tenant-08",
+        "members": 10000,
+        "memberSeedMs": 689.409
+      },
+      {
+        "tenant": "tenant-09",
+        "members": 10000,
+        "memberSeedMs": 631.773
+      },
+      {
+        "tenant": "tenant-10",
+        "members": 10000,
+        "memberSeedMs": 636.673
+      }
+    ],
+    "controlRuntimePrivilegeBoundary": {
+      "credentialClass": "run-scoped-ephemeral-control-runtime-role",
+      "administratorCredentialUsedByApi": false,
+      "login": true,
+      "superuser": false,
+      "createDatabase": false,
+      "createRole": false,
+      "bypassRls": false,
+      "inheritedMemberships": false,
+      "databasePrivileges": [
+        "CONNECT"
+      ],
+      "schemaPrivileges": [
+        "USAGE"
+      ],
+      "tablePrivileges": [
+        "SELECT:tenants",
+        "SELECT:platform_identities",
+        "SELECT:tenant_memberships",
+        "SELECT:auth_sessions",
+        "UPDATE(last_seen_at):auth_sessions"
+      ]
+    },
+    "pass": true
+  },
+  "submissions": {
+    "transport": "real HTTP over loopback TCP",
+    "concurrency": 500,
+    "uniqueRequests": 500,
+    "metrics": {
+      "count": 500,
+      "wallMs": 1317.983,
+      "throughputRequestsPerSecond": 379.368,
+      "p50Ms": 1093.066,
+      "p95Ms": 1288.811,
+      "p99Ms": 1302.709,
+      "maxMs": 1313.453
+    },
+    "statusCounts": {
+      "201": 500
+    },
+    "errorCodeCounts": {
+      "none": 500
+    },
+    "unexpectedFailures": 0,
+    "responseValidationFailures": 0,
+    "perTenant": [
+      {
+        "tenant": "tenant-01",
+        "metrics": {
+          "count": 50,
+          "wallMs": 1317.983,
+          "throughputRequestsPerSecond": 37.937,
+          "p50Ms": 1109.139,
+          "p95Ms": 1303.499,
+          "p99Ms": 1313.453,
+          "maxMs": 1313.453
+        },
+        "statusCounts": {
+          "201": 50
+        },
+        "errorCodeCounts": {
+          "none": 50
+        },
+        "unexpectedFailures": 0,
+        "responseValidationFailures": 0,
+        "integrity": {
+          "members": 10000,
+          "electors": 50,
+          "submissions": 50,
+          "distinctSubmissionElectors": 50,
+          "distinctSubmissionContentHashes": 50,
+          "receipts": 50,
+          "distinctReceiptSubmissions": 50,
+          "distinctReceiptElectors": 50,
+          "receiptsReturnedByApi": 50,
+          "idempotencyRecords": 50,
+          "auditEvents": 50,
+          "outboxEvents": 50,
+          "pass": true
+        }
+      },
+      {
+        "tenant": "tenant-02",
+        "metrics": {
+          "count": 50,
+          "wallMs": 1317.983,
+          "throughputRequestsPerSecond": 37.937,
+          "p50Ms": 1093.066,
+          "p95Ms": 1296.833,
+          "p99Ms": 1308.919,
+          "maxMs": 1308.919
+        },
+        "statusCounts": {
+          "201": 50
+        },
+        "errorCodeCounts": {
+          "none": 50
+        },
+        "unexpectedFailures": 0,
+        "responseValidationFailures": 0,
+        "integrity": {
+          "members": 10000,
+          "electors": 50,
+          "submissions": 50,
+          "distinctSubmissionElectors": 50,
+          "distinctSubmissionContentHashes": 50,
+          "receipts": 50,
+          "distinctReceiptSubmissions": 50,
+          "distinctReceiptElectors": 50,
+          "receiptsReturnedByApi": 50,
+          "idempotencyRecords": 50,
+          "auditEvents": 50,
+          "outboxEvents": 50,
+          "pass": true
+        }
+      },
+      {
+        "tenant": "tenant-03",
+        "metrics": {
+          "count": 50,
+          "wallMs": 1317.983,
+          "throughputRequestsPerSecond": 37.937,
+          "p50Ms": 1087.223,
+          "p95Ms": 1291.342,
+          "p99Ms": 1302.709,
+          "maxMs": 1302.709
+        },
+        "statusCounts": {
+          "201": 50
+        },
+        "errorCodeCounts": {
+          "none": 50
+        },
+        "unexpectedFailures": 0,
+        "responseValidationFailures": 0,
+        "integrity": {
+          "members": 10000,
+          "electors": 50,
+          "submissions": 50,
+          "distinctSubmissionElectors": 50,
+          "distinctSubmissionContentHashes": 50,
+          "receipts": 50,
+          "distinctReceiptSubmissions": 50,
+          "distinctReceiptElectors": 50,
+          "receiptsReturnedByApi": 50,
+          "idempotencyRecords": 50,
+          "auditEvents": 50,
+          "outboxEvents": 50,
+          "pass": true
+        }
+      },
+      {
+        "tenant": "tenant-04",
+        "metrics": {
+          "count": 50,
+          "wallMs": 1317.983,
+          "throughputRequestsPerSecond": 37.937,
+          "p50Ms": 1086.046,
+          "p95Ms": 1288.371,
+          "p99Ms": 1301,
+          "maxMs": 1301
+        },
+        "statusCounts": {
+          "201": 50
+        },
+        "errorCodeCounts": {
+          "none": 50
+        },
+        "unexpectedFailures": 0,
+        "responseValidationFailures": 0,
+        "integrity": {
+          "members": 10000,
+          "electors": 50,
+          "submissions": 50,
+          "distinctSubmissionElectors": 50,
+          "distinctSubmissionContentHashes": 50,
+          "receipts": 50,
+          "distinctReceiptSubmissions": 50,
+          "distinctReceiptElectors": 50,
+          "receiptsReturnedByApi": 50,
+          "idempotencyRecords": 50,
+          "auditEvents": 50,
+          "outboxEvents": 50,
+          "pass": true
+        }
+      },
+      {
+        "tenant": "tenant-05",
+        "metrics": {
+          "count": 50,
+          "wallMs": 1317.983,
+          "throughputRequestsPerSecond": 37.937,
+          "p50Ms": 1083.056,
+          "p95Ms": 1290.086,
+          "p99Ms": 1301.511,
+          "maxMs": 1301.511
+        },
+        "statusCounts": {
+          "201": 50
+        },
+        "errorCodeCounts": {
+          "none": 50
+        },
+        "unexpectedFailures": 0,
+        "responseValidationFailures": 0,
+        "integrity": {
+          "members": 10000,
+          "electors": 50,
+          "submissions": 50,
+          "distinctSubmissionElectors": 50,
+          "distinctSubmissionContentHashes": 50,
+          "receipts": 50,
+          "distinctReceiptSubmissions": 50,
+          "distinctReceiptElectors": 50,
+          "receiptsReturnedByApi": 50,
+          "idempotencyRecords": 50,
+          "auditEvents": 50,
+          "outboxEvents": 50,
+          "pass": true
+        }
+      },
+      {
+        "tenant": "tenant-06",
+        "metrics": {
+          "count": 50,
+          "wallMs": 1317.983,
+          "throughputRequestsPerSecond": 37.937,
+          "p50Ms": 1095.253,
+          "p95Ms": 1293.106,
+          "p99Ms": 1302.278,
+          "maxMs": 1302.278
+        },
+        "statusCounts": {
+          "201": 50
+        },
+        "errorCodeCounts": {
+          "none": 50
+        },
+        "unexpectedFailures": 0,
+        "responseValidationFailures": 0,
+        "integrity": {
+          "members": 10000,
+          "electors": 50,
+          "submissions": 50,
+          "distinctSubmissionElectors": 50,
+          "distinctSubmissionContentHashes": 50,
+          "receipts": 50,
+          "distinctReceiptSubmissions": 50,
+          "distinctReceiptElectors": 50,
+          "receiptsReturnedByApi": 50,
+          "idempotencyRecords": 50,
+          "auditEvents": 50,
+          "outboxEvents": 50,
+          "pass": true
+        }
+      },
+      {
+        "tenant": "tenant-07",
+        "metrics": {
+          "count": 50,
+          "wallMs": 1317.983,
+          "throughputRequestsPerSecond": 37.937,
+          "p50Ms": 1089.929,
+          "p95Ms": 1288.715,
+          "p99Ms": 1299.404,
+          "maxMs": 1299.404
+        },
+        "statusCounts": {
+          "201": 50
+        },
+        "errorCodeCounts": {
+          "none": 50
+        },
+        "unexpectedFailures": 0,
+        "responseValidationFailures": 0,
+        "integrity": {
+          "members": 10000,
+          "electors": 50,
+          "submissions": 50,
+          "distinctSubmissionElectors": 50,
+          "distinctSubmissionContentHashes": 50,
+          "receipts": 50,
+          "distinctReceiptSubmissions": 50,
+          "distinctReceiptElectors": 50,
+          "receiptsReturnedByApi": 50,
+          "idempotencyRecords": 50,
+          "auditEvents": 50,
+          "outboxEvents": 50,
+          "pass": true
+        }
+      },
+      {
+        "tenant": "tenant-08",
+        "metrics": {
+          "count": 50,
+          "wallMs": 1317.983,
+          "throughputRequestsPerSecond": 37.937,
+          "p50Ms": 1078.541,
+          "p95Ms": 1280.534,
+          "p99Ms": 1293.007,
+          "maxMs": 1293.007
+        },
+        "statusCounts": {
+          "201": 50
+        },
+        "errorCodeCounts": {
+          "none": 50
+        },
+        "unexpectedFailures": 0,
+        "responseValidationFailures": 0,
+        "integrity": {
+          "members": 10000,
+          "electors": 50,
+          "submissions": 50,
+          "distinctSubmissionElectors": 50,
+          "distinctSubmissionContentHashes": 50,
+          "receipts": 50,
+          "distinctReceiptSubmissions": 50,
+          "distinctReceiptElectors": 50,
+          "receiptsReturnedByApi": 50,
+          "idempotencyRecords": 50,
+          "auditEvents": 50,
+          "outboxEvents": 50,
+          "pass": true
+        }
+      },
+      {
+        "tenant": "tenant-09",
+        "metrics": {
+          "count": 50,
+          "wallMs": 1317.983,
+          "throughputRequestsPerSecond": 37.937,
+          "p50Ms": 1090.233,
+          "p95Ms": 1285.557,
+          "p99Ms": 1295.282,
+          "maxMs": 1295.282
+        },
+        "statusCounts": {
+          "201": 50
+        },
+        "errorCodeCounts": {
+          "none": 50
+        },
+        "unexpectedFailures": 0,
+        "responseValidationFailures": 0,
+        "integrity": {
+          "members": 10000,
+          "electors": 50,
+          "submissions": 50,
+          "distinctSubmissionElectors": 50,
+          "distinctSubmissionContentHashes": 50,
+          "receipts": 50,
+          "distinctReceiptSubmissions": 50,
+          "distinctReceiptElectors": 50,
+          "receiptsReturnedByApi": 50,
+          "idempotencyRecords": 50,
+          "auditEvents": 50,
+          "outboxEvents": 50,
+          "pass": true
+        }
+      },
+      {
+        "tenant": "tenant-10",
+        "metrics": {
+          "count": 50,
+          "wallMs": 1317.983,
+          "throughputRequestsPerSecond": 37.937,
+          "p50Ms": 1074.901,
+          "p95Ms": 1275.796,
+          "p99Ms": 1288.811,
+          "maxMs": 1288.811
+        },
+        "statusCounts": {
+          "201": 50
+        },
+        "errorCodeCounts": {
+          "none": 50
+        },
+        "unexpectedFailures": 0,
+        "responseValidationFailures": 0,
+        "integrity": {
+          "members": 10000,
+          "electors": 50,
+          "submissions": 50,
+          "distinctSubmissionElectors": 50,
+          "distinctSubmissionContentHashes": 50,
+          "receipts": 50,
+          "distinctReceiptSubmissions": 50,
+          "distinctReceiptElectors": 50,
+          "receiptsReturnedByApi": 50,
+          "idempotencyRecords": 50,
+          "auditEvents": 50,
+          "outboxEvents": 50,
+          "pass": true
+        }
+      }
+    ],
+    "aggregateIntegrity": {
+      "tenants": 10,
+      "members": 100000,
+      "electors": 500,
+      "submissions": 500,
+      "receipts": 500,
+      "idempotencyRecords": 500,
+      "auditEvents": 500,
+      "outboxEvents": 500,
+      "pass": true
+    },
+    "acknowledgementBudgetPass": true,
+    "pass": true
+  },
+  "propagation": {
+    "transport": "authenticated SSE over loopback TCP",
+    "streams": 10,
+    "expectedEvents": 500,
+    "timingBasis": "outbox occurred_at to client frame receipt; conservatively includes remaining transaction commit time",
+    "throughputWindow": "wall-clock from submission burst dispatch through SSE completion/timeout",
+    "measurementWallMs": 2309.484,
+    "metrics": {
+      "count": 500,
+      "wallMs": 2309.484,
+      "throughputRequestsPerSecond": 216.499,
+      "p50Ms": 251.451,
+      "p95Ms": 990.481,
+      "p99Ms": 1004.94,
+      "maxMs": 1016.227
+    },
+    "perTenant": [
+      {
+        "tenant": "tenant-01",
+        "observedEvents": 50,
+        "persistedMatchingEvents": 50,
+        "metrics": {
+          "count": 50,
+          "wallMs": 2309.484,
+          "throughputRequestsPerSecond": 21.65,
+          "p50Ms": 208.85,
+          "p95Ms": 984.217,
+          "p99Ms": 1003.848,
+          "maxMs": 1003.848
+        },
+        "pass": true
+      },
+      {
+        "tenant": "tenant-02",
+        "observedEvents": 50,
+        "persistedMatchingEvents": 50,
+        "metrics": {
+          "count": 50,
+          "wallMs": 2309.484,
+          "throughputRequestsPerSecond": 21.65,
+          "p50Ms": 227.596,
+          "p95Ms": 996.029,
+          "p99Ms": 1010.259,
+          "maxMs": 1010.259
+        },
+        "pass": true
+      },
+      {
+        "tenant": "tenant-03",
+        "observedEvents": 50,
+        "persistedMatchingEvents": 50,
+        "metrics": {
+          "count": 50,
+          "wallMs": 2309.484,
+          "throughputRequestsPerSecond": 21.65,
+          "p50Ms": 221.401,
+          "p95Ms": 984.742,
+          "p99Ms": 1001.809,
+          "maxMs": 1001.809
+        },
+        "pass": true
+      },
+      {
+        "tenant": "tenant-04",
+        "observedEvents": 50,
+        "persistedMatchingEvents": 50,
+        "metrics": {
+          "count": 50,
+          "wallMs": 2309.484,
+          "throughputRequestsPerSecond": 21.65,
+          "p50Ms": 221.919,
+          "p95Ms": 996.09,
+          "p99Ms": 1012.758,
+          "maxMs": 1012.758
+        },
+        "pass": true
+      },
+      {
+        "tenant": "tenant-05",
+        "observedEvents": 50,
+        "persistedMatchingEvents": 50,
+        "metrics": {
+          "count": 50,
+          "wallMs": 2309.484,
+          "throughputRequestsPerSecond": 21.65,
+          "p50Ms": 230.26,
+          "p95Ms": 995.288,
+          "p99Ms": 1010.206,
+          "maxMs": 1010.206
+        },
+        "pass": true
+      },
+      {
+        "tenant": "tenant-06",
+        "observedEvents": 50,
+        "persistedMatchingEvents": 50,
+        "metrics": {
+          "count": 50,
+          "wallMs": 2309.484,
+          "throughputRequestsPerSecond": 21.65,
+          "p50Ms": 223.043,
+          "p95Ms": 991.128,
+          "p99Ms": 1004.43,
+          "maxMs": 1004.43
+        },
+        "pass": true
+      },
+      {
+        "tenant": "tenant-07",
+        "observedEvents": 50,
+        "persistedMatchingEvents": 50,
+        "metrics": {
+          "count": 50,
+          "wallMs": 2309.484,
+          "throughputRequestsPerSecond": 21.65,
+          "p50Ms": 226.767,
+          "p95Ms": 992.374,
+          "p99Ms": 1004.94,
+          "maxMs": 1004.94
+        },
+        "pass": true
+      },
+      {
+        "tenant": "tenant-08",
+        "observedEvents": 50,
+        "persistedMatchingEvents": 50,
+        "metrics": {
+          "count": 50,
+          "wallMs": 2309.484,
+          "throughputRequestsPerSecond": 21.65,
+          "p50Ms": 225.558,
+          "p95Ms": 998.908,
+          "p99Ms": 1016.227,
+          "maxMs": 1016.227
+        },
+        "pass": true
+      },
+      {
+        "tenant": "tenant-09",
+        "observedEvents": 50,
+        "persistedMatchingEvents": 50,
+        "metrics": {
+          "count": 50,
+          "wallMs": 2309.484,
+          "throughputRequestsPerSecond": 21.65,
+          "p50Ms": 225.047,
+          "p95Ms": 991.157,
+          "p99Ms": 1003.659,
+          "maxMs": 1003.659
+        },
+        "pass": true
+      },
+      {
+        "tenant": "tenant-10",
+        "observedEvents": 50,
+        "persistedMatchingEvents": 50,
+        "metrics": {
+          "count": 50,
+          "wallMs": 2309.484,
+          "throughputRequestsPerSecond": 21.65,
+          "p50Ms": 603.315,
+          "p95Ms": 875.017,
+          "p99Ms": 926.672,
+          "maxMs": 926.672
+        },
+        "pass": true
+      }
+    ],
+    "allStreamsCompleted": true,
+    "integrityPass": true,
+    "budgetPass": true,
+    "pass": true
+  },
+  "reads": {
+    "transport": "real HTTP GET over loopback TCP",
+    "concurrentParticipantSessions": 500,
+    "requestsPerParticipant": 2,
+    "totalRequests": 1000,
+    "dashboard": {
+      "metrics": {
+        "count": 500,
+        "wallMs": 1286.468,
+        "throughputRequestsPerSecond": 388.661,
+        "p50Ms": 620.808,
+        "p95Ms": 895.904,
+        "p99Ms": 921.418,
+        "maxMs": 932.732
+      },
+      "statusCounts": {
+        "200": 500
+      },
+      "errorCodeCounts": {
+        "none": 500
+      },
+      "unexpectedFailures": 0,
+      "responseValidationFailures": 0
+    },
+    "memberListAgainstTenThousandRows": {
+      "metrics": {
+        "count": 500,
+        "wallMs": 1286.468,
+        "throughputRequestsPerSecond": 388.661,
+        "p50Ms": 541.66,
+        "p95Ms": 714.602,
+        "p99Ms": 731.89,
+        "maxMs": 749.058
+      },
+      "statusCounts": {
+        "200": 500
+      },
+      "errorCodeCounts": {
+        "none": 500
+      },
+      "unexpectedFailures": 0,
+      "responseValidationFailures": 0
+    },
+    "combined": {
+      "metrics": {
+        "count": 1000,
+        "wallMs": 1286.468,
+        "throughputRequestsPerSecond": 777.322,
+        "p50Ms": 569.645,
+        "p95Ms": 866.517,
+        "p99Ms": 919.408,
+        "maxMs": 932.732
+      },
+      "statusCounts": {
+        "200": 1000
+      },
+      "errorCodeCounts": {
+        "none": 1000
+      },
+      "unexpectedFailures": 0,
+      "responseValidationFailures": 0
+    },
+    "tenantBusinessStateUnchanged": true,
+    "budgetPass": true,
+    "pass": true
+  },
+  "isolation": {
+    "databaseCredentialRing": {
+      "attempts": 10,
+      "deniedWithSqlstate42501": 10,
+      "unexpectedOutcomes": 0,
+      "mapping": "runtime credential N against tenant database N+1",
+      "pass": true
+    },
+    "httpTenantIdAndForeignRoundRing": {
+      "foreignTenantAttempts": 10,
+      "foreignTenantDenied": 10,
+      "foreignRoundAttempts": 10,
+      "foreignRoundHidden": 10,
+      "unexpectedOutcomes": 0,
+      "pass": true
+    },
+    "pass": true
+  },
+  "cleanup": {
+    "controlRows": 0,
+    "databases": 0,
+    "roles": 0,
+    "operationalControlBefore": {
+      "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+      "digest": "sha256:71ebf60379863c758405548af410982b9c2ca7bb3bb7d39fabede41763f9dc08",
+      "tables": 17,
+      "rows": 1783,
+      "schemaObjects": 6233
+    },
+    "operationalControlAfter": {
+      "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+      "digest": "sha256:71ebf60379863c758405548af410982b9c2ca7bb3bb7d39fabede41763f9dc08",
+      "tables": 17,
+      "rows": 1783,
+      "schemaObjects": 6233
+    },
+    "operationalControlUnchanged": true,
+    "protectedDatabasesBefore": {
+      "control": {
+        "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+        "digest": "sha256:71ebf60379863c758405548af410982b9c2ca7bb3bb7d39fabede41763f9dc08",
+        "tables": 17,
+        "rows": 1783,
+        "schemaObjects": 6233
+      },
+      "demo": {
+        "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+        "digest": "sha256:19a54d89bc6f050c095eafdabff7fece1e1bb0f829b9f6e7dc510841ad6628e3",
+        "tables": 53,
+        "rows": 2682,
+        "schemaObjects": 7832
+      },
+      "ozama": {
+        "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+        "digest": "sha256:234541c38b214b386df2568b1f269642e34da97b429aba1474aa098cb83bf7b4",
+        "tables": 53,
+        "rows": 227,
+        "schemaObjects": 7832
+      }
+    },
+    "protectedDatabasesAfter": {
+      "control": {
+        "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+        "digest": "sha256:71ebf60379863c758405548af410982b9c2ca7bb3bb7d39fabede41763f9dc08",
+        "tables": 17,
+        "rows": 1783,
+        "schemaObjects": 6233
+      },
+      "demo": {
+        "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+        "digest": "sha256:19a54d89bc6f050c095eafdabff7fece1e1bb0f829b9f6e7dc510841ad6628e3",
+        "tables": 53,
+        "rows": 2682,
+        "schemaObjects": 7832
+      },
+      "ozama": {
+        "fingerprintVersion": "protected-db-v3-full-cluster-role-structure-and-content",
+        "digest": "sha256:234541c38b214b386df2568b1f269642e34da97b429aba1474aa098cb83bf7b4",
+        "tables": 53,
+        "rows": 227,
+        "schemaObjects": 7832
+      }
+    },
+    "protectedDatabasesUnchanged": true,
+    "ephemeralResourcesBefore": {
+      "inspectedDatabases": 2,
+      "inspectedRoles": 4,
+      "globalDatabaseCount": 6,
+      "globalRoleCount": 22,
+      "globalMembershipCount": 3,
+      "globalSharedDescriptionCount": 3,
+      "globalSharedSecurityLabelCount": 0,
+      "globalInventoryDigest": "sha256:90a008e8bd074baf164f947259731ae68c42ffb730959e6cfac2532c20b4804e",
+      "orphanDatabases": 0,
+      "orphanRoles": 0,
+      "pass": true
+    },
+    "ephemeralResourcesAfter": {
+      "inspectedDatabases": 2,
+      "inspectedRoles": 4,
+      "globalDatabaseCount": 6,
+      "globalRoleCount": 22,
+      "globalMembershipCount": 3,
+      "globalSharedDescriptionCount": 3,
+      "globalSharedSecurityLabelCount": 0,
+      "globalInventoryDigest": "sha256:90a008e8bd074baf164f947259731ae68c42ffb730959e6cfac2532c20b4804e",
+      "orphanDatabases": 0,
+      "orphanRoles": 0,
+      "pass": true
+    },
+    "globalInventoryUnchanged": true,
+    "pass": true
+  }
+}

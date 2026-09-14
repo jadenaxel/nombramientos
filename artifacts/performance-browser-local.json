@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 2,
+  "acceptanceCriterion": "AC-37-browser",
+  "startedAtUtc": "2026-09-13T03:34:00.465Z",
+  "completedAtUtc": "2026-09-13T03:34:07.705Z",
+  "status": "passed",
+  "inProgress": false,
+  "closureEligible": true,
+  "closureScope": "complementary browser evidence only; not standalone proof of production Members-route performance",
+  "totalWallMs": 7239.589,
+  "environment": {
+    "hardware": {
+      "cpuModel": "12th Gen Intel(R) Core(TM) i9-12900H",
+      "logicalCpuCount": 20,
+      "totalMemoryGiB": 15.736
+    },
+    "operatingSystem": {
+      "platform": "win32",
+      "release": "10.0.26200",
+      "arch": "x64"
+    },
+    "runtime": {
+      "node": "v24.19.0",
+      "chromium": "153.0.8010.12"
+    },
+    "network": {
+      "transport": "HTTP over loopback TCP",
+      "tls": false,
+      "proxy": false,
+      "allowedAppOrigin": "http://127.0.0.1:3000",
+      "observedHttpOrigins": [
+        "http://127.0.0.1:3000"
+      ]
+    },
+    "viewport": {
+      "width": 390,
+      "height": 844,
+      "mobileEmulation": true
+    }
+  },
+  "dataset": {
+    "classification": "standalone synthetic dataset generated only in process memory for this run",
+    "members": 10000,
+    "encryptedEnvelopeAlgorithm": "AES-256-GCM",
+    "aadBoundFields": [
+      "tenantId",
+      "memberId",
+      "purpose",
+      "schemaVersion"
+    ],
+    "payloadBytes": 4547671,
+    "datasetGenerationMs": 159.65,
+    "productionMembersRouteMeasured": false,
+    "protectedTenantDataUsed": false,
+    "persistedAfterRun": false
+  },
+  "thresholds": {
+    "localSearchP95MsInclusive": 300,
+    "localSearchMaxMsInclusive": 300,
+    "mainThreadAnimationFrameGapMsInclusive": 250,
+    "lcpMsInclusive": 2500,
+    "inpMsInclusive": 200,
+    "clsInclusive": 0.1
+  },
+  "measurementBoundary": {
+    "syntheticPipeline": "standalone Web Worker download/decrypt/index/search pipeline over an in-memory generated dataset",
+    "exercisesProductionMembersRoute": false,
+    "exercisesProductionMembersComponents": false,
+    "appVitalsRoute": "/es/auth/sign-in",
+    "appVitalsFinalUrl": "http://127.0.0.1:3000/es/auth/sign-in",
+    "appVitalsFinalUrlExact": true,
+    "appVitalsAuthenticated": false,
+    "protectedCredentialsLoaded": false,
+    "protectedOperationalApiRequestsAllowedFromBrowser": false,
+    "serverSideDatabaseAccessMeasured": false
+  },
+  "measurements": {
+    "syntheticStandaloneCryptoPipeline": {
+      "memberCount": 10000,
+      "payloadBytes": 4547671,
+      "downloadMs": 12.9,
+      "parseMs": 8.3,
+      "decryptMs": 128.9,
+      "indexBuildMs": 19.3,
+      "downloadDecryptIndexMs": 322.7,
+      "searchSamples": 41,
+      "searchP95Ms": 4,
+      "searchMaxMs": 4.5,
+      "knownMatchCount": 1,
+      "absentMatchCount": 0,
+      "animationFrameApiSupported": true,
+      "animationFrameCount": 20,
+      "maxAnimationFrameGapMs": 16.7,
+      "thresholds": {
+        "searchBudgetMs": 300,
+        "uiGapBudgetMs": 250
+      }
+    },
+    "publicSignInMobileVitals": {
+      "lcpMs": 160,
+      "cls": 0,
+      "inpMs": 16,
+      "interactionCount": 26,
+      "firstContentfulPaintMs": 160,
+      "domContentLoadedMs": 181.4,
+      "loadEventMs": 187.5,
+      "layoutShiftSupported": true,
+      "largestContentfulPaintSupported": true,
+      "eventTimingSupported": true,
+      "supportedEntryTypes": [
+        "element",
+        "event",
+        "first-input",
+        "interaction-contentful-paint",
+        "largest-contentful-paint",
+        "layout-shift",
+        "long-animation-frame",
+        "longtask",
+        "mark",
+        "measure",
+        "navigation",
+        "paint",
+        "resource",
+        "soft-navigation",
+        "visibility-state"
+      ]
+    }
+  },
+  "cleanup": {
+    "browserClosed": true,
+    "syntheticServerClosed": true,
+    "ephemeralBuffersZeroedAndReferencesReleased": true,
+    "blockedNonWebHttpRequests": 0,
+    "blockedUnsafeHttpRequests": 0,
+    "blockedWebSocketRequests": 0,
+    "protectedAuthCookies": 0,
+    "protectedOperationalDataAccess": "not-measured",
+    "protectedDatabaseFingerprint": {
+      "status": "not-measured",
+      "reason": "This complementary browser probe has no protected credentials and does not claim visibility into server-side database access"
+    },
+    "pass": true
+  },
+  "checks": {
+    "exactPipelineMetricCardinality": true,
+    "pipelineMetricsFinite": true,
+    "vitalsMetricsFinite": true,
+    "exactMemberCount": true,
+    "exactPayloadCardinality": true,
+    "exactSearchSampleCount": true,
+    "exactMatchMetricCardinality": true,
+    "knownMemberFoundExactlyOnce": true,
+    "absenceReportedOnlyAfterCompleteIndex": true,
+    "searchMetricsOrdered": true,
+    "localSearchP95WithinBudget": true,
+    "localSearchMaxWithinBudget": true,
+    "animationFrameMeasurementSupported": true,
+    "animationFrameMeasurementHasSamples": true,
+    "mainThreadResponsiveDuringWorkerPipeline": true,
+    "lcpSupported": true,
+    "observerEntryTypesUniqueAndConsistent": true,
+    "exactInteractionMetricCardinality": true,
+    "lcpWithinBudget": true,
+    "inpMeasured": true,
+    "inpWithinBudget": true,
+    "clsSupported": true,
+    "clsWithinBudget": true,
+    "exactPublicSignInFinalUrl": true,
+    "publicRouteOnly": true,
+    "noNonWebHttpRequestsAttempted": true,
+    "noUnsafeHttpRequestsAttempted": true,
+    "noWebSocketRequestsAttempted": true,
+    "noProtectedAuthCookiesAtClose": true
+  },
+  "overallPass": true,
+  "deviations": [
+    "synthetic-crypto-pipeline-does-not-measure-production-members-route-components-rendering-or-api",
+    "loopback-download-does-not-model-wan-jitter-loss-or-tls",
+    "chromium-mobile-emulation-is-not-physical-mobile-hardware-or-field-core-web-vitals",
+    "single-run-lab-inp-is-an-event-timing-observation-not-a-real-user-monitoring-percentile"
+  ]
+}

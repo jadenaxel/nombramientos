@@ -1,0 +1,381 @@
+{
+  "schemaVersion": 1,
+  "command": "pnpm verify:local",
+  "startedAtUtc": "2026-09-14T10:15:27.3609394Z",
+  "completedAtUtc": "2026-09-14T10:15:29.6989095Z",
+  "result": "failed",
+  "overallPass": false,
+  "closureEligible": false,
+  "environment": {
+    "node": null,
+    "finalizerNode": "v24.19.0",
+    "pnpm": null,
+    "postgresqlBinary": null,
+    "pnpmLockSha256": "76f79becff711e1e30ffbb212a76892363208f1f726b6d3b5a6ff39308897e96",
+    "valid": false
+  },
+  "guarantees": {
+    "liveIntegrationRequired": true,
+    "privilegedLiveRequired": true,
+    "stdoutPersisted": false,
+    "stderrPersisted": false,
+    "repositoryRelativeTestPathsOnly": true,
+    "zeroNonE2ESkipsRequired": true
+  },
+  "stages": [
+    {
+      "name": "source-snapshot-start",
+      "command": "hash closure-relevant workspace sources before verification",
+      "startedAtUtc": "2026-09-14T10:15:27.4654824Z",
+      "completedAtUtc": "2026-09-14T10:15:27.6178630Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "initial-health",
+      "command": "GET http://127.0.0.1:4000/healthz",
+      "startedAtUtc": "2026-09-14T10:15:27.6220749Z",
+      "completedAtUtc": "2026-09-14T10:15:29.6853023Z",
+      "exitCode": 1,
+      "status": "failed",
+      "counts": null,
+      "errorCode": "CHECK_FAILED"
+    },
+    {
+      "name": "live-prerequisites",
+      "command": "verify local live-integration prerequisites",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "supply-chain",
+      "command": "pnpm run security:supply-chain",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "dependency-audit",
+      "command": "pnpm audit --prod --audit-level high",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "typecheck",
+      "command": "pnpm run typecheck",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "lint",
+      "command": "pnpm run lint",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "stop-services-before-build",
+      "command": "scripts/stop-local.ps1 -KeepDatabase",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "build",
+      "command": "pnpm run build",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "start-fresh-services",
+      "command": "scripts/start-local.ps1",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "fresh-health",
+      "command": "GET http://127.0.0.1:4000/healthz (worker required)",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "verification-contract",
+      "command": "pnpm run test:verification",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "test-domain",
+      "command": "pnpm --filter @nombramientos/domain test",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "test-e2ee",
+      "command": "pnpm --filter @nombramientos/e2ee test",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "test-database",
+      "command": "pnpm --filter @nombramientos/database test --exclude test/seed-audit-history.live.test.ts",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "test-api",
+      "command": "pnpm --filter @nombramientos/api test",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "test-web",
+      "command": "pnpm --filter @nombramientos/web test:unit",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "engine-probe",
+      "command": "node apps/web/scripts/check-playwright-engines.mjs",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "playwright-e2e",
+      "command": "pnpm run test:e2e",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "playwright-skip-policy",
+      "command": "validate Playwright results against apps/web/e2e/intentional-skips.json",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "pdf-render",
+      "command": "pdftoppm -png -r 96 docs/evidence/demo-cycle-summary.pdf <temporary-report-prefix> (all pages)",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "delivery-scan",
+      "command": "pnpm run security:delivery",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "local-state-verification",
+      "command": "pnpm --silent run db:verify:local-state",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "terminal-health",
+      "command": "verify recorded API/web/worker processes and terminal HTTP health",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "source-integrity-final",
+      "command": "re-hash closure-relevant workspace sources before publication",
+      "startedAtUtc": null,
+      "completedAtUtc": null,
+      "exitCode": null,
+      "status": "not-run",
+      "counts": null,
+      "errorCode": null
+    },
+    {
+      "name": "evidence-finalize",
+      "command": "atomically publish artifacts/verify-local-final.json",
+      "startedAtUtc": "2026-09-14T10:15:29.6989095Z",
+      "completedAtUtc": "2026-09-14T10:15:29.824Z",
+      "exitCode": 0,
+      "status": "passed",
+      "counts": null,
+      "errorCode": null
+    }
+  ],
+  "testSuites": [
+    {
+      "name": "domain"
+    },
+    {
+      "name": "e2ee"
+    },
+    {
+      "name": "database"
+    },
+    {
+      "name": "api"
+    },
+    {
+      "name": "web"
+    }
+  ],
+  "engines": null,
+  "e2e": null,
+  "artifacts": {
+    "valid": false,
+    "popplerRenderPass": false,
+    "requiredFileCount": 4,
+    "currentRunFileCount": 0,
+    "files": [
+      {
+        "path": "docs/evidence/demo-cycle-summary.pdf",
+        "sha256": "960c56a48aa1ab93456240066324bb6d28c378981c470f9296986dd141309b3a",
+        "bytes": 17215,
+        "modifiedAtUtc": "2026-09-14T09:31:05.735Z",
+        "present": true,
+        "fresh": false
+      },
+      {
+        "path": "docs/evidence/demo-cycle-summary.xlsx",
+        "sha256": "faa6c02c074886c930ca16633891a57dfb933fbb1c3d0edf135b9463bf324af9",
+        "bytes": 7226,
+        "modifiedAtUtc": "2026-09-14T09:31:06.055Z",
+        "present": true,
+        "fresh": false
+      },
+      {
+        "path": "docs/evidence/demo-cycle-summary.csv",
+        "sha256": "361b0204f9629c6d12b812b55f00219d3acbd33c8c19cc22050b0a6b265468c7",
+        "bytes": 504,
+        "modifiedAtUtc": "2026-09-14T09:31:06.359Z",
+        "present": true,
+        "fresh": false
+      },
+      {
+        "path": "docs/evidence/demo-cycle-summary-history.csv",
+        "sha256": "361b0204f9629c6d12b812b55f00219d3acbd33c8c19cc22050b0a6b265468c7",
+        "bytes": 504,
+        "modifiedAtUtc": "2026-09-14T09:31:06.663Z",
+        "present": true,
+        "fresh": false
+      }
+    ]
+  },
+  "localState": {
+    "valid": false,
+    "errorCode": "LOCAL_STATE_EVIDENCE_INVALID"
+  },
+  "sourceIntegrity": {
+    "start": {
+      "schemaVersion": 1,
+      "algorithm": "sha256",
+      "fileCount": 653,
+      "sha256": "29a32df3a1e6efa8e02e86cbf25e506e9e245bddeab13c3fdb2c7e7556ce398a"
+    },
+    "end": null,
+    "publication": {
+      "schemaVersion": 1,
+      "algorithm": "sha256",
+      "fileCount": 653,
+      "sha256": "29a32df3a1e6efa8e02e86cbf25e506e9e245bddeab13c3fdb2c7e7556ce398a"
+    },
+    "valid": false
+  },
+  "serviceLifecycle": {
+    "freshServicesStarted": false,
+    "terminalHealthPassed": false,
+    "failureCleanupAttempted": true,
+    "failureCleanupSucceeded": true,
+    "successPolicy": "leave-api-web-worker-running-after-publication-health",
+    "failurePolicy": "stop-api-web-worker-and-keep-postgresql-running",
+    "publicationHealth": {
+      "api": false,
+      "web": false,
+      "worker": false,
+      "valid": false
+    },
+    "validForClosure": false
+  }
+}

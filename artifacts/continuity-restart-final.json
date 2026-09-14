@@ -1,0 +1,268 @@
+{
+  "schemaVersion": 1,
+  "generatedAtUtc": "2026-09-13T05:02:43.836Z",
+  "scope": "local-continuity-and-restart",
+  "result": "passed",
+  "overallPass": true,
+  "verification": {
+    "artifact": "artifacts/verify-local-final.json",
+    "artifactSha256": "43bc3fe084a3e8f6d4be8e952c4a6f4483f8d0c603a4563ea669a078d3808035",
+    "startedAtUtc": "2026-09-13T04:30:38.1283052Z",
+    "completedAtUtc": "2026-09-13T04:35:32.1728478Z",
+    "result": "passed",
+    "overallPass": true,
+    "closureEligible": true,
+    "stageCount": 25,
+    "passedStageCount": 24,
+    "acceptedOptionalStageCount": 1,
+    "sourceIntegrity": {
+      "fileCount": 554,
+      "sha256": "9c995355bbdf93049dd89bff2c4979dd22f9b763bd825649eb3be25826d99f43",
+      "startEndPublicationMatch": true
+    }
+  },
+  "realStackReadOnlyPreflight": {
+    "artifact": "artifacts/real-browser-stack-preflight.json",
+    "artifactSha256": "32bdc57968fd37a1d6c9987a8b268e95c18332b403c5e27603971424f181d088",
+    "startedAtUtc": "2026-09-13T04:39:52.859Z",
+    "completedAtUtc": "2026-09-13T04:39:53.671Z",
+    "status": "passed",
+    "pass": true,
+    "protectedDatabasesUnchanged": true,
+    "ephemeralControlDatabasesAbsent": true,
+    "orphanTenantResourcesAbsent": true,
+    "operationalPortsFree": [3000, 4000],
+    "clusterCatalogDigestBefore": "sha256:aea4e426b14602d6bf284b62cd685ccb0ad005a0263eb00df17cc5976dc7776a",
+    "clusterCatalogDigestAfter": "sha256:aea4e426b14602d6bf284b62cd685ccb0ad005a0263eb00df17cc5976dc7776a"
+  },
+  "backups": {
+    "demo": {
+      "action": "backup",
+      "status": "completed",
+      "tenantId": "d0000000-0000-4000-8000-000000000001",
+      "tenantLifecycle": "active",
+      "maintenanceClass": "routable",
+      "backupId": "b7fb4134-1d06-4c77-a5c3-ab6c17712a59",
+      "backupDirectory": "X:\\CODE\\NOMBRAMIENTOS\\packages\\database\\.local\\backups\\d0000000-0000-4000-8000-000000000001\\20260913T043804736Z-b7fb4134-1d06-4c77-a5c3-ab6c17712a59",
+      "encryptedBytes": 1668147,
+      "durationMs": 441,
+      "recoveryPointAgeMs": 413
+    },
+    "ozama": {
+      "action": "backup",
+      "status": "completed",
+      "tenantId": "0a2a0000-0000-4000-8000-000000000001",
+      "tenantLifecycle": "provisioning",
+      "maintenanceClass": "pending_activation",
+      "backupId": "a73ab5e6-94d5-412c-a226-3eee1bdcd33e",
+      "backupDirectory": "X:\\CODE\\NOMBRAMIENTOS\\packages\\database\\.local\\backups\\0a2a0000-0000-4000-8000-000000000001\\20260913T043829121Z-a73ab5e6-94d5-412c-a226-3eee1bdcd33e",
+      "encryptedBytes": 297591,
+      "durationMs": 384,
+      "recoveryPointAgeMs": 355
+    }
+  },
+  "restoreDrills": {
+    "demo": {
+      "action": "restore-drill",
+      "status": "passed",
+      "tenantId": "d0000000-0000-4000-8000-000000000001",
+      "backupId": "b7fb4134-1d06-4c77-a5c3-ab6c17712a59",
+      "scratchDatabase": "nom_restore_d0000000_b7fb4134",
+      "scratchRemoved": true,
+      "restoredInvariantMatches": true,
+      "otherTenantUnchanged": true,
+      "comparedTenantIds": [
+        "0a2a0000-0000-4000-8000-000000000001"
+      ],
+      "comparedTenantCount": 1,
+      "recoveryPointAgeMs": 15568,
+      "backupDurationMs": null,
+      "restoreTimeMs": 1049,
+      "totalDrillTimeMs": 1086,
+      "totalOperationTimeMs": 1173,
+      "rpoTargetMet": true,
+      "rtoTargetMet": true
+    },
+    "ozama": {
+      "action": "restore-drill",
+      "status": "passed",
+      "tenantId": "0a2a0000-0000-4000-8000-000000000001",
+      "backupId": "a73ab5e6-94d5-412c-a226-3eee1bdcd33e",
+      "scratchDatabase": "nom_restore_0a2a0000_a73ab5e6",
+      "scratchRemoved": true,
+      "restoredInvariantMatches": true,
+      "otherTenantUnchanged": true,
+      "comparedTenantIds": [
+        "d0000000-0000-4000-8000-000000000001"
+      ],
+      "comparedTenantCount": 1,
+      "recoveryPointAgeMs": 11428,
+      "backupDurationMs": null,
+      "restoreTimeMs": 956,
+      "totalDrillTimeMs": 1049,
+      "totalOperationTimeMs": 1132,
+      "rpoTargetMet": true,
+      "rtoTargetMet": true
+    }
+  },
+  "auditAnchor": {
+    "tenantId": "d0000000-0000-4000-8000-000000000001",
+    "tenantKind": "demo",
+    "checkpoint": {
+      "action": "checkpoint",
+      "status": "completed",
+      "eventCount": 921,
+      "checkpointCount": 2,
+      "anchorSequence": "2",
+      "checkpointHash": "sha256:6484a43bd897c0d9243652650576df7b4c760a569d04fcb50b889937fefa5e94",
+      "anchorHash": "sha256:6618307bfa5d5caed4f3e491463eccfa33b2f3b42f8a41e81d0ba12668be360a",
+      "storageAssurance": "development-emulation-not-worm",
+      "transactionReadOnly": true,
+      "postgresMajor": "18",
+      "secretMaterialPrinted": false
+    },
+    "verificationBeforeRestart": {
+      "action": "verify",
+      "status": "passed",
+      "eventCount": "921",
+      "checkpointCount": 2,
+      "anchorCount": 2,
+      "anchorSequence": "2",
+      "latestAnchorHash": "sha256:6618307bfa5d5caed4f3e491463eccfa33b2f3b42f8a41e81d0ba12668be360a",
+      "transactionReadOnly": true,
+      "secretMaterialPrinted": false
+    },
+    "tamperDrill": {
+      "action": "drill",
+      "status": "passed",
+      "baselineVerified": true,
+      "temporaryEvidenceCopied": true,
+      "cases": {
+        "alteration": {
+          "detected": true,
+          "code": "EVENT_HASH_MISMATCH"
+        },
+        "intermediateDeletion": {
+          "detected": true,
+          "code": "EVENT_LINK_MISMATCH"
+        },
+        "truncation": {
+          "detected": true,
+          "code": "CHECKPOINT_EVENT_MISSING"
+        },
+        "reordering": {
+          "detected": true,
+          "code": "EVENT_LINK_MISMATCH"
+        },
+        "rollback": {
+          "detected": true,
+          "code": "TRUSTED_ANCHOR_MISMATCH"
+        }
+      },
+      "databaseWrites": 0,
+      "transactionReadOnly": true,
+      "secretMaterialPrinted": false,
+      "temporaryEvidenceRemoved": true
+    },
+    "verificationAfterRestart": {
+      "action": "verify",
+      "status": "passed",
+      "eventCount": "921",
+      "checkpointCount": 2,
+      "anchorCount": 2,
+      "anchorSequence": "2",
+      "latestAnchorHash": "sha256:6618307bfa5d5caed4f3e491463eccfa33b2f3b42f8a41e81d0ba12668be360a",
+      "transactionReadOnly": true,
+      "secretMaterialPrinted": false
+    }
+  },
+  "restart": {
+    "checkedAtUtc": "2026-09-13T04:41:01.8274425Z",
+    "postgresAlreadyRunning": true,
+    "api": {
+      "status": "ok",
+      "port": 4000
+    },
+    "web": {
+      "statusCode": 200,
+      "port": 3000
+    },
+    "worker": {
+      "status": "running",
+      "healthy": true,
+      "startedAt": "2026-09-13T04:40:17.329Z",
+      "heartbeatAtBefore": "2026-09-13T04:40:55.060Z",
+      "heartbeatAtAfter": "2026-09-13T04:41:01.112Z",
+      "heartbeatAdvanced": true,
+      "processedCount": 0,
+      "lastErrorCode": null
+    },
+    "recordedProcessesRunning": {
+      "worker": true,
+      "api": true,
+      "web": true
+    }
+  },
+  "finalPostDocumentationHealth": {
+    "checkedAtUtc": "2026-09-13T05:02:35.9784599Z",
+    "apiStatus": "ok",
+    "apiService": "nombramientos-api",
+    "webStatusCode": 200,
+    "workerStatus": "running",
+    "workerHealthy": true,
+    "heartbeatAtBefore": "2026-09-13T05:02:29.799Z",
+    "heartbeatAtAfter": "2026-09-13T05:02:35.820Z",
+    "heartbeatAdvanced": true,
+    "processedCount": 0,
+    "lastErrorCode": null
+  },
+  "finalLocalState": {
+    "checkedAtUtc": "2026-09-13T05:02:43.836Z",
+    "mode": "read-only",
+    "pass": true,
+    "mismatchCount": 0,
+    "postgresMajor": 18,
+    "port": 55432,
+    "loopback": true,
+    "controlMigrations": "14/14",
+    "controlHead": "014_tenant_summary_export_bytes.sql",
+    "workerBacklogCount": 0,
+    "demo": {
+      "migrations": "35/35",
+      "head": "033_member_qualification_envelope_shape.sql",
+      "memberCount": 180,
+      "eligibleMemberCount": 150,
+      "mismatchCount": 0
+    },
+    "ozama": {
+      "migrations": "35/35",
+      "head": "033_member_qualification_envelope_shape.sql",
+      "operationalTableCount": 46,
+      "operationalRowCount": 0,
+      "mismatchCount": 0
+    }
+  },
+  "security": {
+    "existingBackupKeysReused": true,
+    "existingAuditSigningKeysReused": true,
+    "auditSigningKeyInventory": {
+      "length": 1107,
+      "creationTimeUtc": "2026-09-11T14:30:33.6820579Z",
+      "lastWriteTimeUtc": "2026-09-11T14:30:33.6820579Z",
+      "sha256": "32df1cf6b1c054b1d8d29b5ff564c8a61b0f6488a2a23895a06a0c72690f2cac",
+      "predatesFinalCheckpoint": true
+    },
+    "auditEvidenceInventory": {
+      "ledgerFileCount": 2,
+      "receiptFileCount": 2,
+      "lockEntryCount": 0,
+      "workEntryCount": 0,
+      "latestLedgerAnchorSequence": "2",
+      "latestReceiptAnchorSequence": "2"
+    },
+    "keyConfigurationRegenerated": false,
+    "secretMaterialPersistedInThisArtifact": false,
+    "databaseWritesDuringAuditVerificationAndDrill": 0,
+    "storageAssurance": "development-emulation-not-worm"
+  }
+}

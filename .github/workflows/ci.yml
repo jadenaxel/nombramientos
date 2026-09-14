@@ -1,0 +1,171 @@
+name: verify
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  full-stack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18.6-bookworm
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_USER: postgres
+        ports:
+          - 55432:55432
+        options: >-
+          --health-cmd "pg_isready -U postgres -p 5432 || pg_isready -U postgres -p 55432"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - name: Bind PostgreSQL to the isolated workspace port
+        run: |
+          database_container="${{ job.services.postgres.id }}"
+          docker exec "$database_container" psql -U postgres -d postgres --set ON_ERROR_STOP=on --command "ALTER SYSTEM SET port = 55432"
+          docker restart "$database_container"
+          for attempt in $(seq 1 30); do
+            if docker exec "$database_container" pg_isready -U postgres -p 55432 >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "PostgreSQL did not rebind to isolated port 55432" >&2
+          exit 1
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 24.19.0
+      - name: Install and validate portable PostgreSQL 18 client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc >/dev/null
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+
+          client_root="$RUNNER_TEMP/nom-postgresql-18"
+          install -d "$client_root/packages" "$client_root/root"
+          (
+            cd "$client_root/packages"
+            apt-get download postgresql-client-18 libpq5
+          )
+          for package in "$client_root"/packages/*.deb; do
+            dpkg-deb --extract "$package" "$client_root/root"
+          done
+
+          multiarch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
+          pg_bin="$client_root/root/usr/lib/postgresql/18/bin"
+          pg_lib="$client_root/root/usr/lib/$multiarch"
+          test -x "$pg_bin/pg_dump"
+          test -x "$pg_bin/pg_restore"
+          for tool in pg_dump pg_restore; do
+            version="$(LD_LIBRARY_PATH="$pg_lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" "$pg_bin/$tool" --version)"
+            printf '%s\n' "$version" | grep -Eq "^${tool} \\(PostgreSQL\\) 18\\.[0-9]+"
+          done
+          echo "POSTGRES_BIN=$pg_bin" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$pg_lib" >> "$GITHUB_ENV"
+          echo "$pg_bin" >> "$GITHUB_PATH"
+      - name: Activate pinned pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.19.0 --activate
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium runtime
+        run: pnpm --filter @nombramientos/web test:e2e:install
+      - name: Generate ephemeral local-only credentials
+        run: node ./scripts/create-ci-install.mjs
+      - name: Scan sources and generate supply-chain inventory
+        run: pnpm security:supply-chain
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level high
+      - name: Typecheck and lint
+        run: |
+          pnpm typecheck
+          pnpm lint
+      - name: Build production artifacts
+        run: pnpm build
+      - name: Provision isolated PostgreSQL tenants
+        run: |
+          pnpm db:migrate
+          pnpm db:provision
+          pnpm db:seed:demo
+      - name: Start worker, API and web
+        run: |
+          rm -f .local/provisioning-worker.stop
+          nohup node packages/database/dist/scripts/process-provisioning-jobs.js > .ci-worker.log 2>&1 &
+          echo $! > .ci-worker.pid
+          nohup node apps/api/dist/src/main.js > .ci-api.log 2>&1 &
+          echo $! > .ci-api.pid
+          nohup node apps/web/scripts/start-standalone.mjs > .ci-web.log 2>&1 &
+          echo $! > .ci-web.pid
+          for attempt in $(seq 1 60); do
+            if kill -0 "$(cat .ci-worker.pid)" \
+              && kill -0 "$(cat .ci-api.pid)" \
+              && kill -0 "$(cat .ci-web.pid)" \
+              && node --input-type=module --eval \
+                'const response=await fetch("http://127.0.0.1:4000/healthz",{signal:AbortSignal.timeout(2000)}); const health=await response.json(); if (!response.ok || health.status !== "ok" || health.worker?.healthy !== true) process.exit(1)' \
+                2>/dev/null \
+              && curl --fail --silent --connect-timeout 1 --max-time 2 \
+                http://127.0.0.1:3000/es/auth/sign-in >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Local services failed to become ready" >&2
+          exit 1
+      - name: Run domain, live database and live API tests
+        run: pnpm test
+      - name: Run browser flows and accessibility checks
+        run: pnpm test:e2e
+      - name: Scan built deliverables and generated evidence
+        run: pnpm security:delivery
+      - name: Stop local services
+        if: always()
+        run: |
+          stop_service() {
+            pid_file="$1"
+            test -f "$pid_file" || return 0
+            pid="$(cat "$pid_file")"
+            case "$pid" in
+              ''|*[!0-9]*) return 1 ;;
+            esac
+            kill -0 "$pid" 2>/dev/null || return 0
+            kill "$pid" 2>/dev/null || true
+            for attempt in $(seq 1 40); do
+              kill -0 "$pid" 2>/dev/null || return 0
+              sleep 0.25
+            done
+            kill -KILL "$pid" 2>/dev/null || true
+          }
+          stop_service .ci-worker.pid
+          stop_service .ci-api.pid
+          stop_service .ci-web.pid
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: verification-evidence
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/
+            docs/evidence/
+            playwright-report/
+            test-results/
+            .ci-worker.log
+            .ci-api.log
+            .ci-web.log
