@@ -15,6 +15,7 @@ import {
   MFA_COOKIE,
   SESSION_COOKIE,
   sha256,
+  type SessionSnapshotResult,
 } from "./auth-service.js";
 
 const opaque256Pattern = /^[A-Za-z0-9_-]{43}$/u;
@@ -57,6 +58,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       : ipRateLimitKey(request);
   };
 
+  if (!app.apiConfig.gestionChurchIntegration?.enabled) {
   app.post("/v1/auth/login", {
     preHandler: [requireTrustedBrowserOrigin(app)],
     config: { rateLimit: { max: 10, timeWindow: "15 minutes", keyGenerator: loginIdentifierRateLimitKey } },
@@ -165,6 +167,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     reply.header("pragma", "no-cache");
     return respond(request, reply, publicResult);
   });
+  }
 
   app.post("/v1/auth/logout", {
     preHandler: [app.authenticate, app.verifyCsrf],
@@ -198,7 +201,12 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     const passkeyCount = (await app.database.enterpriseAuth.listCredentials(request.principal.identityId))
       .filter((credential) => credential.revokedAt === null).length;
     reply.header("cache-control", "no-store");
-    return respond(request, reply, app.authService.publicSession(request.principal, csrfToken, keyGrant, passkeyCount));
+    const snapshot: SessionSnapshotResult = {
+      ...app.authService.publicSession(request.principal, csrfToken, keyGrant, passkeyCount),
+      serverTime: new Date().toISOString(),
+      sessionId: request.principal.sessionId,
+    };
+    return respond(request, reply, snapshot);
   });
 }
 

@@ -11,7 +11,7 @@ export type WritableTenantContentKey = {
 
 export class ContentKeyWriteGuardError extends Error {
   public constructor(
-    public readonly code: "KEY_GRANT_REQUIRED" | "ENVELOPE_KEY_MISMATCH",
+    public readonly code: "KEY_GRANT_REQUIRED" | "ENVELOPE_KEY_MISMATCH" | "DEVICE_PROOF_REQUIRED",
     message: string,
   ) {
     super(message);
@@ -27,10 +27,9 @@ export class ContentKeyWriteGuardError extends Error {
  * this from the same transaction that persists the envelopes; an API preflight
  * is not enough.
  *
- * The authenticated session currently identifies a person, not a physical
- * E2EE device. For real tenants this therefore proves that the identity has at
- * least one active device/grant for the active generation; it is not a
- * cryptographic proof that this HTTP request came from that device.
+ * For real tenants the API verified a single-use signing-key proof and the
+ * transaction context must identify that exact live session/device. A grant
+ * held by a different browser of the same identity never authorizes the write.
  */
 export async function assertWritableTenantContentKey(
   client: PoolClient,
@@ -47,22 +46,31 @@ export async function assertWritableTenantContentKey(
   );
   const tenantKind = settings.rows[0]?.kind;
   if (!tenantKind) throw new Error("Tenant settings are missing");
+  if (tenantKind === "real") {
+    const proof = await client.query<{ device_id: string }>("SELECT NULLIF(current_setting('app.proven_device_id',true),'') AS device_id");
+    if (!proof.rows[0]?.device_id) throw new ContentKeyWriteGuardError("DEVICE_PROOF_REQUIRED","A verified browser proof is required for encrypted writes");
+  }
 
   const result = tenantKind === "real"
     ? await client.query<{ tenant_key_id: string }>(
         `SELECT generation.tenant_key_id::text
            FROM e2ee_key_generations generation
            JOIN e2ee_key_grants key_grant ON key_grant.generation_id=generation.id
-           JOIN e2ee_key_devices device
+          JOIN e2ee_key_devices device
              ON device.device_id=key_grant.device_id
             AND device.identity_id=key_grant.identity_id
+          JOIN e2ee_http_session_bindings binding
+            ON binding.device_id=device.device_id AND binding.identity_id=device.identity_id
           WHERE generation.status='active'
             AND key_grant.status='active'
             AND device.status='active'
             AND key_grant.identity_id=$1
+            AND device.device_id=NULLIF(current_setting('app.proven_device_id',true),'')::uuid
+            AND binding.session_id=NULLIF(current_setting('app.session_id',true),'')::uuid
+            AND binding.revoked_at IS NULL
           ORDER BY key_grant.created_at DESC,key_grant.id DESC
           LIMIT 1
-          FOR SHARE OF generation,key_grant,device`,
+          FOR SHARE OF generation,key_grant,device,binding`,
         [input.identityId],
       )
     : await client.query<{ tenant_key_id: string }>(

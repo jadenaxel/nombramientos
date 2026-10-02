@@ -5,6 +5,13 @@ import type {
   PasskeyRegistrationResponse,
 } from "./webauthn.ts";
 import { authenticateWithPasskey, isPasskeyCancellation } from "./webauthn.ts";
+import { SESSION_INVALID_EVENT } from "./gestionchurch-session.ts";
+import { RequestInterruptedError, TRANSFER_TIMEOUT_MS, withRequestDeadline } from "./request-deadline.ts";
+import {
+  clearDeviceSigner, currentDeviceProofContext, currentDeviceSigner, deviceRequestRequiresProof, deviceRequestRetryHeaders,
+  DeviceSessionClientError, hashDeviceRequestBody, setDeviceProofContext, signDeviceClaims, validateDeviceRequestClaims,
+  type DeviceRequestClaims, type DeviceSigningPublicJwk,
+} from "./device-session-proof.ts";
 
 export type Locale = "es" | "en" | "fr";
 
@@ -71,6 +78,10 @@ export type AuthenticatedSession = {
   permissions: string[];
   csrfToken: string;
   expiresAt: string;
+  /** Authoritative UTC time returned with this session, not the device wall clock. */
+  serverTime?: string;
+  /** Client-only monotonic receipt anchor; never sent or persisted. */
+  receivedAtMonotonic?: number;
   keyGrant?: KeyGrant | null;
   security: {
     mfaRequired: boolean;
@@ -249,6 +260,7 @@ export type AccessIdentity = {
   displayName: string;
   email: string;
   membershipStatus: string;
+  gestionChurchManaged?: boolean;
 };
 
 export type AccessBinding = {
@@ -928,9 +940,11 @@ function defaultApiUrl(): string {
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? defaultApiUrl();
 export const apiBaseUrl = API_URL;
 let csrfToken: string | undefined;
+let deviceProofTenantKind: AuthenticatedSession["tenant"]["kind"] | undefined;
 
 export function setCsrfToken(value?: string) {
   csrfToken = value;
+  if (!value) setDeviceProofContext(undefined);
 }
 
 export function idempotencyKey() {
@@ -950,27 +964,46 @@ export async function apiRequest<T>(
   } = init;
   const headers = new Headers(init.headers);
   headers.set("accept", "application/json");
-  if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
+  const multipart = typeof FormData !== "undefined" && init.body instanceof FormData;
+  const multipartTransfer = multipart || /^multipart\/form-data(?:;|$)/iu.test(headers.get("content-type") ?? "");
+  if (init.body && !multipart && !headers.has("content-type")) headers.set("content-type", "application/json");
   const method = (init.method ?? "GET").toUpperCase();
   if (includeCsrf && !["GET", "HEAD", "OPTIONS"].includes(method) && csrfToken) headers.set("x-csrf-token", csrfToken);
   const resolvedIdempotencyKey = idempotent ? logicalIdempotencyKey ?? idempotencyKey() : undefined;
   if (resolvedIdempotencyKey) headers.set("idempotency-key", resolvedIdempotencyKey);
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...requestInit,
-    headers,
-    credentials: "include",
-    cache: "no-store",
-  });
+  const { response, body } = await boundedRequest(async (signal) => {
+    // Preparation is inside the same deadline and cancellation boundary as the
+    // transfer. Bootstrap/unbound requests keep the browser's multipart behavior.
+    if ((currentDeviceProofContext() || (process.env.NEXT_PUBLIC_GESTIONCHURCH_URL && deviceProofTenantKind !== "demo")) && deviceRequestRequiresProof(path, method)) {
+      if (multipart) {
+        const prepared = new Request(`${API_URL}${path}`, { method, body: init.body });
+        headers.set("content-type", prepared.headers.get("content-type")!);
+        requestInit.body = await prepared.arrayBuffer();
+      }
+      await applyDeviceRequestProof(path, method, requestInit.body, headers, signal);
+    }
+    const response = await fetch(`${API_URL}${path}`, {
+      ...requestInit,
+      headers,
+      signal,
+      credentials: "include",
+      cache: "no-store",
+    });
+    const body = response.ok && response.status === 204 ? undefined : await response.json().catch(() => undefined) as
+      | ApiEnvelope<T>
+      | { error?: { code?: string; message?: string; details?: ApiErrorDetails } }
+      | undefined;
+    return { response, body };
+  }, { signal: init.signal, timeoutMs: multipartTransfer ? TRANSFER_TIMEOUT_MS : undefined }, method);
   const requestId = response.headers.get("x-request-id") ?? undefined;
   if (response.ok && response.status === 204) return undefined as T;
-  const body = (await response.json().catch(() => undefined)) as
-    | ApiEnvelope<T>
-    | { error?: { code?: string; message?: string; details?: ApiErrorDetails } }
-    | undefined;
-
   if (!response.ok) {
     const errorBody = body && "error" in body ? body.error : undefined;
+    if (response.status === 401 && typeof window !== "undefined") {
+      clearDeviceSigner();
+      window.dispatchEvent(new Event(SESSION_INVALID_EVENT));
+    }
     const stepUpEndpoint = path.startsWith("/v1/auth/passkeys/step-up/");
     if (
       response.status === 428
@@ -984,6 +1017,7 @@ export async function apiRequest<T>(
           body: JSON.stringify(errorBody.details),
           idempotent: true,
           stepUpAttempted: true,
+          signal: init.signal,
         });
         const assertion = await authenticateWithPasskey(ceremony.options);
         const grant = await apiRequest<PasskeyStepUpResult>("/v1/auth/passkeys/step-up/verify", {
@@ -991,8 +1025,9 @@ export async function apiRequest<T>(
           body: JSON.stringify({ ceremonyId: ceremony.ceremonyId, response: assertion }),
           idempotent: true,
           stepUpAttempted: true,
+          signal: init.signal,
         });
-        const retryHeaders = new Headers(requestInit.headers);
+        const retryHeaders = deviceRequestRetryHeaders(headers);
         retryHeaders.set("x-step-up-grant", grant.grantToken);
         return apiRequest<T>(path, {
           ...requestInit,
@@ -1017,8 +1052,71 @@ export async function apiRequest<T>(
       errorBody?.details,
     );
   }
-  if (!body || !("data" in body)) throw new ApiError(502, "INVALID_RESPONSE", "La respuesta del servidor no es válida.", requestId);
+  if (!body || !("data" in body)) throw new ApiError(502, ["GET", "HEAD", "OPTIONS"].includes(method) ? "INVALID_RESPONSE" : "INVALID_RESPONSE_UNCERTAIN", "La respuesta del servidor no es válida.", requestId);
   return body.data;
+}
+
+async function applyDeviceRequestProof(path: string, method: string, body: BodyInit | null | undefined, headers: Headers, signal?: AbortSignal | null): Promise<void> {
+  const context = currentDeviceProofContext();
+  if (!deviceRequestRequiresProof(path, method)) return;
+  if (!context) {
+    if (process.env.NEXT_PUBLIC_GESTIONCHURCH_URL && deviceProofTenantKind !== "demo") throw new ApiError(428, "DEVICE_SESSION_ENROLLMENT_REQUIRED", "Verifica este navegador para continuar.");
+    return;
+  }
+  const signer = currentDeviceSigner();
+  if (!signer) throw new ApiError(428, "DEVICE_SESSION_LOCAL_KEY_REQUIRED", "Verifica este navegador para continuar.");
+  try {
+    const bodyHash = await hashDeviceRequestBody(body);
+    const key = headers.get("idempotency-key") ?? "";
+    const proof = await apiRequest<{ claims: DeviceRequestClaims; publicJwk: DeviceSigningPublicJwk; issuedAt: number }>("/v1/device-session/proofs", {
+      method: "POST", body: JSON.stringify({ method, path, bodyHash, idempotencyKey: key }), signal,
+    });
+    validateDeviceRequestClaims({ ...proof, signer, context, method, path, url: `${API_URL}${path}`, bodyHash, idempotencyKey: key });
+    headers.set("x-device-proof", await signDeviceClaims(signer, proof.claims));
+  } catch (error) {
+    if (error instanceof DeviceSessionClientError) throw new ApiError(428, error.code, "No se pudo verificar este navegador.");
+    throw error;
+  }
+}
+
+/** Signed streaming transport. No session/proof secret is placed in an SSE URL. */
+export async function openDeviceEventStream(path: string, signal: AbortSignal): Promise<Response> {
+  const headers = new Headers({ accept: "text/event-stream" });
+  return boundedRequest(async (deadlineSignal) => {
+    await applyDeviceRequestProof(path, "GET", undefined, headers, deadlineSignal);
+    // The caller remains connected to the streaming body after header deadline
+    // cleanup, while the one-use nonce and connection share the same deadline.
+    const response = await fetch(`${API_URL}${path}`, { method: "GET", headers, signal: AbortSignal.any([signal, deadlineSignal]), credentials: "include", cache: "no-store" });
+    if (!response.ok) {
+      const value = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined;
+      if (response.status === 401 && typeof window !== "undefined") {
+        clearDeviceSigner();
+        window.dispatchEvent(new Event(SESSION_INVALID_EVENT));
+      }
+      throw new ApiError(response.status, value?.error?.code ?? "UNEXPECTED_ERROR", value?.error?.message ?? "No se pudo abrir la actualización en vivo.");
+    }
+    return response;
+  }, { signal }, "GET");
+}
+
+async function boundedRequest<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  options: { signal?: AbortSignal | null; timeoutMs?: number },
+  method: string,
+): Promise<T> {
+  try {
+    return await withRequestDeadline(operation, options);
+  } catch (error) {
+    if (error instanceof RequestInterruptedError || error instanceof TypeError) {
+      const uncertainWrite = !["GET", "HEAD", "OPTIONS"].includes(method);
+      const code = error instanceof RequestInterruptedError ? error.code : "NETWORK_ERROR";
+      throw new ApiError(0, uncertainWrite ? `${code}_UNCERTAIN` : code,
+        uncertainWrite
+          ? "La respuesta no llegó. La operación podría haberse aplicado; verifica su estado antes de repetirla."
+          : "La solicitud se interrumpió. Puedes volver a consultar.");
+    }
+    throw error;
+  }
 }
 
 async function downloadBinary(path: string, body: Readonly<Record<string, unknown>>): Promise<{
@@ -1027,12 +1125,10 @@ async function downloadBinary(path: string, body: Readonly<Record<string, unknow
 }> {
   const headers = new Headers({ accept: "application/vnd.nombramientos.tenant-backup+aesgcm", "content-type": "application/json" });
   if (csrfToken) headers.set("x-csrf-token", csrfToken);
+  return boundedRequest(async (signal) => {
+  await applyDeviceRequestProof(path, "POST", JSON.stringify(body), headers, signal);
   const response = await fetch(`${API_URL}${path}`, {
-    method: "POST",
-    headers,
-    credentials: "include",
-    cache: "no-store",
-    body: JSON.stringify(body),
+    method: "POST", headers, signal, credentials: "include", cache: "no-store", body: JSON.stringify(body),
   });
   if (!response.ok) {
     const value = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined;
@@ -1046,9 +1142,16 @@ async function downloadBinary(path: string, body: Readonly<Record<string, unknow
   const disposition = response.headers.get("content-disposition") ?? "";
   const filename = /filename="([a-zA-Z0-9._-]+)"/u.exec(disposition)?.[1] ?? "tenant-export.aesgcm";
   return { blob: await response.blob(), filename };
+  }, { timeoutMs: TRANSFER_TIMEOUT_MS }, "POST");
 }
 
 export const api = {
+  gestionChurchSession: (code: string) =>
+    apiRequest<AuthenticatedSession>("/v1/integrations/gestionchurch/session", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+      csrf: false,
+    }),
   login: (email: string, password: string) =>
     apiRequest<LoginResult>("/v1/auth/login", { method: "POST", body: JSON.stringify({ email, password }), idempotent: true }),
   passkeyAuthenticationOptions: (email?: string, mediation: "conditional" | "optional" = "optional") =>
@@ -1142,7 +1245,15 @@ export const api = {
   logout: () => apiRequest<{ loggedOut: true }>("/v1/auth/logout", { method: "POST", body: "{}", idempotent: true }),
   session: async () => {
     const session = await apiRequest<AuthenticatedSession>("/v1/session");
+    session.receivedAtMonotonic = performance.now();
+    deviceProofTenantKind = session.tenant.kind;
     setCsrfToken(session.csrfToken);
+    if (session.tenant.kind !== "real") setDeviceProofContext(undefined);
+    else if (session.sessionId) setDeviceProofContext({ sessionId: session.sessionId, tenantId: session.tenant.id, identityId: session.user.id });
+    else {
+      const current = currentDeviceProofContext();
+      if (current && (current.tenantId !== session.tenant.id || current.identityId !== session.user.id)) setDeviceProofContext(undefined);
+    }
     return session;
   },
   memberships: () => apiRequest<{ items: TenantMembership[]; activeTenantId: string }>("/v1/memberships"),

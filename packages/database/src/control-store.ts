@@ -24,6 +24,32 @@ export interface LoginIdentity {
   readonly lockedUntil: Date | null;
 }
 
+export interface GestionChurchFederatedIdentityInput {
+  readonly gestionChurchTenantId: string;
+  readonly gestionChurchTenantSlug: string;
+  readonly tenantName: string;
+  readonly gestionChurchSubject: string;
+  readonly email: string;
+  readonly displayName: string;
+  readonly gestionChurchRoles: readonly string[];
+  readonly roleFingerprint: string;
+  readonly disabledPasswordHash: string;
+}
+
+export interface GestionChurchFederatedIdentity {
+  readonly identityId: string;
+  readonly tenantId: string;
+  readonly tenantSlug: string;
+  readonly tenantStatus: string;
+}
+
+export interface GestionChurchFederationMetadata {
+  readonly subject: string;
+  readonly roles: readonly string[];
+  readonly roleFingerprint: string;
+  readonly gestionChurchTenantId: string;
+}
+
 export interface MfaChallengeRecord {
   readonly challengeId: string;
   readonly identityId: string;
@@ -184,6 +210,7 @@ export interface TenantMembershipIdentity {
   readonly displayName: string;
   readonly email: string;
   readonly membershipStatus: string;
+  readonly gestionChurchManaged?: boolean;
 }
 
 export interface ProvisioningQueueResult {
@@ -310,6 +337,90 @@ export function tenantReactivationRequestHash(input: {
 
 export class ControlPlaneStore {
   public constructor(private readonly pool: Pool) {}
+
+  public async syncGestionChurchFederatedIdentity(
+    input: GestionChurchFederatedIdentityInput,
+  ): Promise<GestionChurchFederatedIdentity> {
+    const result = await this.pool.query<{
+      identity_id: string;
+      tenant_id: string;
+      tenant_slug: string;
+      tenant_status: string;
+    }>(
+      `SELECT * FROM sync_gestionchurch_federated_identity(
+         $1,$2,$3,$4,$5,$6,$7::text[],$8,$9
+       )`,
+      [
+        input.gestionChurchTenantId,
+        input.gestionChurchTenantSlug,
+        input.tenantName,
+        input.gestionChurchSubject,
+        input.email,
+        input.displayName,
+        [...input.gestionChurchRoles],
+        input.roleFingerprint,
+        input.disabledPasswordHash,
+      ],
+    );
+    const row = result.rows[0];
+    if (!row) throw new Error("GestionChurch identity synchronization returned no context");
+    return {
+      identityId: row.identity_id,
+      tenantId: row.tenant_id,
+      tenantSlug: row.tenant_slug,
+      tenantStatus: row.tenant_status,
+    };
+  }
+
+  public async getGestionChurchFederation(
+    identityId: string,
+    activeTenantId?: string,
+  ): Promise<GestionChurchFederationMetadata | null> {
+    const result = await this.pool.query<{
+      gestionchurch_subject: string;
+      gestionchurch_roles: string[];
+      gestionchurch_role_fingerprint: string;
+      gestionchurch_tenant_id: string;
+    }>(
+      `SELECT identity.gestionchurch_subject,identity.gestionchurch_roles,
+              identity.gestionchurch_role_fingerprint,tenant.gestionchurch_tenant_id
+         FROM platform_identities identity
+         JOIN tenant_memberships membership ON membership.identity_id=identity.id
+         JOIN tenants tenant ON tenant.id=membership.tenant_id
+        WHERE identity.id=$1 AND identity.gestionchurch_subject IS NOT NULL
+          AND membership.status='active' AND tenant.status='active'
+          AND ($2::uuid IS NULL OR tenant.id=$2)`,
+      [identityId, activeTenantId ?? null],
+    );
+    const row = result.rows[0];
+    return row ? {
+      subject: row.gestionchurch_subject,
+      roles: row.gestionchurch_roles,
+      roleFingerprint: row.gestionchurch_role_fingerprint,
+      gestionChurchTenantId: row.gestionchurch_tenant_id,
+    } : null;
+  }
+
+  public async bindGestionChurchSession(tokenHash: string, identityId: string, sourceSessionId: string): Promise<void> {
+    const result = await this.pool.query(
+      `UPDATE auth_sessions SET gestionchurch_source_session_id=$3
+       WHERE token_hash=$1 AND identity_id=$2 AND auth_method='federated'
+         AND (gestionchurch_source_session_id IS NULL OR gestionchurch_source_session_id=$3)
+         AND revoked_at IS NULL AND expires_at>clock_timestamp() RETURNING id`,
+      [tokenHash, identityId, sourceSessionId],
+    );
+    if (result.rowCount !== 1) throw new Error('Federated session binding failed');
+  }
+
+  public async getGestionChurchSessionBinding(sessionId: string, identityId: string, activeTenantId: string): Promise<string | null> {
+    const result = await this.pool.query<{ source_id: string | null }>(
+      `SELECT gestionchurch_source_session_id source_id FROM auth_sessions
+       WHERE id=$1 AND identity_id=$2 AND active_tenant_id=$3 AND auth_method='federated'
+         AND revoked_at IS NULL AND expires_at>clock_timestamp()`,
+      [sessionId, identityId, activeTenantId],
+    );
+    return result.rows[0]?.source_id ?? null;
+  }
 
   public async findIdentityForLogin(normalizedEmail: string): Promise<LoginIdentity | null> {
     const result = await this.pool.query<{
@@ -873,6 +984,13 @@ export class ControlPlaneStore {
     );
   }
 
+  public async revokeTenantDeviceSessions(tenantId: string,sessionIds: readonly string[]): Promise<number> {
+    if (sessionIds.length === 0) return 0;
+    const result = await this.pool.query(`UPDATE auth_sessions SET revoked_at=clock_timestamp(),revoke_reason='e2ee_device_revoked'
+      WHERE active_tenant_id=$1 AND id=ANY($2::uuid[]) AND revoked_at IS NULL`, [tenantId,sessionIds]);
+    return result.rowCount ?? 0;
+  }
+
   public async listOwnMemberships(identityId: string): Promise<readonly OwnTenantMembership[]> {
     const result = await this.pool.query<{
       tenant_id: string;
@@ -956,9 +1074,11 @@ export class ControlPlaneStore {
       display_name: string;
       email: string;
       membership_status: string;
+      gestionchurch_managed: boolean;
     }>(
       `SELECT identity.id AS identity_id, identity.display_name, identity.email,
-              membership.status AS membership_status
+              membership.status AS membership_status,
+              identity.gestionchurch_subject IS NOT NULL AS gestionchurch_managed
          FROM tenant_memberships membership
          JOIN platform_identities identity ON identity.id = membership.identity_id
         WHERE membership.tenant_id = $1
@@ -970,6 +1090,7 @@ export class ControlPlaneStore {
       displayName: row.display_name,
       email: row.email,
       membershipStatus: row.membership_status,
+      gestionChurchManaged: row.gestionchurch_managed,
     }));
   }
 

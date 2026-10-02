@@ -157,7 +157,7 @@ describe("pending-activation database invariant", () => {
 });
 
 describe("canonical operational inventory", () => {
-  it("partitions every tenant CREATE TABLE exactly into 8 configuration and 47 operational tables", () => {
+  it("partitions every tenant CREATE TABLE exactly into 8 configuration and 50 operational tables", () => {
     const migrationDirectory = path.join(packageRoot, "migrations", "tenant");
     const createdTables = readdirSync(migrationDirectory)
       .filter((name) => name.endsWith(".sql"))
@@ -168,9 +168,9 @@ describe("canonical operational inventory", () => {
     const classified = [...TENANT_CONFIGURATION_TABLES, ...TENANT_OPERATIONAL_TABLES].sort();
 
     expect(TENANT_CONFIGURATION_TABLES).toHaveLength(8);
-    expect(TENANT_OPERATIONAL_TABLES).toHaveLength(47);
-    expect(new Set(classified).size).toBe(55);
-    expect(createdTables).toHaveLength(55);
+    expect(TENANT_OPERATIONAL_TABLES).toHaveLength(50);
+    expect(new Set(classified).size).toBe(58);
+    expect(createdTables).toHaveLength(58);
     expect(classified).toEqual(createdTables);
     expect(TENANT_OPERATIONAL_TABLES).toEqual(expect.arrayContaining([
       "member_qualification_versions",
@@ -180,6 +180,9 @@ describe("canonical operational inventory", () => {
       "candidate_snapshots",
       "candidacies",
       "candidate_list_entries",
+      "e2ee_http_devices",
+      "e2ee_http_session_bindings",
+      "e2ee_http_challenges",
     ]));
   });
 

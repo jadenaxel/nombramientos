@@ -13,9 +13,24 @@ export const tenantNavigationSections = [
   "access",
   "custody",
   "history",
+  "library",
+  "settings",
 ] as const;
 
 export type TenantNavigationSection = (typeof tenantNavigationSections)[number];
+
+export const tenantNavigationGroups = [
+  { id: "home", sections: ["overview"] },
+  { id: "cycle", sections: ["workflow", "session", "results"] },
+  { id: "organization", sections: ["members", "catalog", "committee", "organization"] },
+  { id: "insights", sections: ["reports", "history", "library"] },
+  { id: "administration", sections: ["access", "custody", "settings"] },
+] as const satisfies readonly {
+  id: "home" | "cycle" | "organization" | "insights" | "administration";
+  sections: readonly TenantNavigationSection[];
+}[];
+
+export type TenantNavigationGroupId = (typeof tenantNavigationGroups)[number]["id"];
 
 const contentKeySections = new Set<string>([
   "overview",

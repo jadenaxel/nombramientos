@@ -9,5 +9,6 @@
 | [0005](0005-catalog-and-i18n-versioning.md) | Catálogo normativo e idiomas versionados | Aceptada |
 | [0006](0006-local-postgresql.md) | PostgreSQL local aislado para desarrollo | Aceptada para desarrollo |
 | [0007](0007-phishing-resistant-authentication.md) | Passkeys, niveles de garantía y recuperación restringida | Aceptada para implementación local |
+| [0008](0008-device-bound-module-sessions.md) | Vinculación criptográfica de sesión/dispositivo y acceso guiado integrado | Implementada; API/criptografía locales y navegador integrado4/4 aprobados. No certificación productiva/independiente |
 
 Una ADR aceptada documenta una decisión de ingeniería; no certifica su implementación ni su conformidad externa.

@@ -14,6 +14,8 @@ import {
   verifiedSessionOrIdentityOrIpRateLimitKey,
 } from "./lib/rate-limit-policy.js";
 import { createSessionBinding, CSRF_COOKIE, SESSION_COOKIE, sha256 } from "./modules/auth-service.js";
+import { requireCurrentGestionChurchAccess } from "./modules/gestionchurch-integration-routes.js";
+import { requireDeviceSessionProof, registerDeviceProofBodyHash } from "./modules/device-session-proof.js";
 
 export async function registerSecurity(
   app: FastifyInstance,
@@ -21,6 +23,7 @@ export async function registerSecurity(
 ): Promise<void> {
   await app.register(cookie);
   app.decorateRequest("principal", null);
+  registerDeviceProofBodyHash(app);
 
   // Route-specific limits inherit this verified-identity key. Running at
   // preValidation lets the optional resolver below authenticate the session
@@ -75,7 +78,7 @@ export async function registerSecurity(
       if (!origin || app.apiConfig.corsOrigins.has(origin)) callback(null, true);
       else callback(new ApiError(403, "CORS_ORIGIN_DENIED", "Origin is not allowed"), false);
     },
-    allowedHeaders: ["content-type", "x-csrf-token", "x-step-up-grant", "idempotency-key", "last-event-id"],
+    allowedHeaders: ["content-type", "x-csrf-token", "x-step-up-grant", "idempotency-key", "last-event-id", "x-device-proof"],
     exposedHeaders: ["x-request-id"],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
@@ -130,6 +133,7 @@ export async function registerSecurity(
   app.decorate("authenticate", async (request) => {
     const principal = await resolvePrincipal(request);
     if (!principal) throw unauthorized(request.cookies[SESSION_COOKIE] ? "Session is invalid or expired" : undefined);
+    await requireCurrentGestionChurchAccess(app, principal);
     const path = request.url.split("?", 1)[0] ?? "";
     if (principal.assuranceLevel === "recovery_limited" && !RECOVERY_LIMITED_ROUTES.has(path)) {
       throw new ApiError(403, "RECOVERY_RESTRICTED", "Complete security recovery before using application data or administration");
@@ -146,6 +150,7 @@ export async function registerSecurity(
         "The current session does not satisfy the active identity security policy",
       );
     }
+    await requireDeviceSessionProof(app, request);
   });
   app.decorate("verifyCsrf", async (request) => {
     if (!request.principal) throw unauthorized();

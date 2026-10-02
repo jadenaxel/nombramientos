@@ -217,6 +217,7 @@ describe("API security contracts", () => {
     const production = {
       NODE_ENV: "production",
       API_COOKIE_SECURE: "true",
+      API_PUBLIC_ORIGIN: "https://api.example.test",
       API_CORS_ORIGINS: "https://login.example.test",
       WEBAUTHN_RP_ID: "example.test",
       WEBAUTHN_EXPECTED_ORIGINS: "https://login.example.test",

@@ -334,7 +334,9 @@ function sessionFixture(seed: number, identityId: string): SessionFixture {
       displayName: "Rate limit identity",
       tenantSlug: "fixture",
       tenantName: "Fixture",
-      tenantKind: "real",
+      // Rate-limit unit fixtures use disposable demo identity contexts. The
+      // real-tenant device proof protocol has its own cryptographic/live tests.
+      tenantKind: "demo",
       tenantTimezone: "America/La_Paz",
       csrfHash: sha256("csrf"),
       expiresAt: new Date(Date.now() + 60_000),

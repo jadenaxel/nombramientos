@@ -1,6 +1,7 @@
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 import { z } from "zod";
 import { sslForMode } from "./config.js";
+import { pinProvenDeviceSession } from "./device-session-store.js";
 import type {
   ResolvedTenantCredential,
   SecretProvider,
@@ -171,6 +172,16 @@ async function setLocalContext(
        set_config('app.request_id', $4, true)`,
     [context.tenantId, context.identityId, context.sessionId, context.requestId],
   );
+  if (context.provenDeviceId) {
+    uuid.parse(context.provenDeviceId);
+    await client.query("SELECT set_config('app.proven_device_id',$1,true)", [context.provenDeviceId]);
+    if (!context.deferDevicePin) {
+      // Same lifecycle lock order as revocation/rotation; never upgrade a row
+      // lock while another browser request holds a compatible share lock.
+      await client.query("SELECT pg_advisory_xact_lock_shared(hashtextextended('e2ee_key_lifecycle_v1',0))");
+      await pinProvenDeviceSession(client, context.identityId, context.sessionId, context.provenDeviceId);
+    }
+  }
 }
 
 function poolConfig(

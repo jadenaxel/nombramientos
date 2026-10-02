@@ -24,7 +24,7 @@ function safeSpreadsheetHeader(value: string): string {
 }
 
 function pdfText(value: string): string {
-  return value.normalize("NFC").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ");
+  return value.normalize("NFC").replace(/[\u2010-\u2015]/gu, "-").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ");
 }
 
 function expectedReportMediaType(format: ReportFormat): string {
@@ -192,46 +192,111 @@ export async function buildLocalArtifact(
   // reject the font and display an empty report.
   const regular = await document.embedFont(regularBytes, { subset: true, customName: "Bitstream Vera Sans" });
   const bold = await document.embedFont(boldBytes, { subset: true, customName: "Bitstream Vera Sans Bold" });
-  const printableRows: readonly ReportRow[] = [
-    [filtersLabel, filterSummary],
-    [snapshotLabel, report.filters.snapshotSha256],
-    ...rows,
+  const navy = rgb(0.035, 0.14, 0.23);
+  const teal = rgb(0.03, 0.43, 0.43);
+  const gold = rgb(0.79, 0.58, 0.24);
+  const ink = rgb(0.11, 0.2, 0.28);
+  const muted = rgb(0.4, 0.48, 0.55);
+  const cloud = rgb(0.94, 0.955, 0.965);
+  const directoryReport = new Set<string>(["department", "elected_board", "general_recommendations"]).has(report.reportType);
+  const cover = document.addPage([595.28, 841.89]);
+  cover.drawText("N", { x: 44, y: 778, size: 30, font: bold, color: teal });
+  cover.drawText("NOMBRAMIENTOS", { x: 83, y: 793, size: 9, font: bold, color: navy });
+  wrapMeasuredText(tenantName, 360, (text) => regular.widthOfTextAtSize(text, 8.5)).slice(0, 2).forEach((line, index) => cover.drawText(line, { x: 83, y: 776 - index * 11, size: 8.5, font: regular, color: muted }));
+  cover.drawText(report.locale.toUpperCase(), { x: 510, y: 793, size: 9, font: bold, color: navy });
+  cover.drawRectangle({ x: 0, y: 215, width: 595.28, height: 490, color: navy });
+  cover.drawRectangle({ x: 44, y: 638, width: 46, height: 5, color: gold });
+  cover.drawText(pdfText(message(report.locale, "reports.studio.eyebrow")), { x: 44, y: 602, size: 9.5, font: bold, color: gold });
+  const coverTitle = wrapMeasuredText(title, 500, (text) => bold.widthOfTextAtSize(text, 31)).slice(0, 4);
+  coverTitle.forEach((line, index) => cover.drawText(line, { x: 44, y: 550 - index * 38, size: 31, font: bold, color: rgb(1, 1, 1) }));
+  const subtitleY = Math.min(400, 550 - coverTitle.length * 38 - 12);
+  cover.drawText(pdfText(`${audienceLabel}: ${audience}`), { x: 44, y: subtitleY, size: 11, font: regular, color: rgb(0.78, 0.86, 0.88) });
+  cover.drawText(pdfText(`${issuedLabel}: ${issued}`), { x: 44, y: subtitleY - 22, size: 9, font: regular, color: rgb(0.68, 0.77, 0.81) });
+  const numericRows = rows.filter((row) => typeof row[1] === "number").slice(0, 3);
+  const coverStats: readonly ReportRow[] = numericRows.length >= 3 ? numericRows : [
+    [message(report.locale, "screen.reportsView.7a4c2c0357fd"), rows.length],
+    [message(report.locale, "screen.reportsView.cd98527c436d"), report.locale.toUpperCase()],
+    [message(report.locale, "screen.reportsView.7ea14aef1c61"), `v${report.lineageRevision}`],
   ];
-  const laidOutRows = printableRows.map(([label, value]) => {
-    const labelLines = wrapMeasuredText(String(label), 265, (text) => regular.widthOfTextAtSize(text, 8.5));
-    const valueLines = wrapMeasuredText(String(value), 185, (text) => bold.widthOfTextAtSize(text, 9));
-    return { labelLines, valueLines, height: Math.max(48, Math.max(labelLines.length, valueLines.length) * 12 + 22) };
+  coverStats.slice(0, 3).forEach(([label, value], index) => {
+    const x = 44 + index * 171;
+    cover.drawText(pdfText(String(value)), { x, y: 276, size: 24, font: bold, color: rgb(1, 1, 1) });
+    wrapMeasuredText(String(label), 145, (text) => regular.widthOfTextAtSize(text, 7.5)).slice(0, 2).forEach((line, lineIndex) => cover.drawText(line, { x, y: 254 - lineIndex * 10, size: 7.5, font: regular, color: rgb(0.7, 0.8, 0.83) }));
   });
-  const pages: (typeof laidOutRows)[] = [];
-  let pageRows: typeof laidOutRows = [];
-  let usedHeight = 0;
-  for (const row of laidOutRows) {
-    if (pageRows.length && usedHeight + row.height + 8 > 570) {
-      pages.push(pageRows);
-      pageRows = [];
-      usedHeight = 0;
-    }
-    pageRows.push(row);
-    usedHeight += row.height + 8;
-  }
-  pages.push(pageRows);
-  pages.forEach((pageRows, pageIndex) => {
+  cover.drawText(pdfText(filtersLabel.toUpperCase()), { x: 44, y: 166, size: 7.5, font: bold, color: gold });
+  wrapMeasuredText(filterSummary, 507, (text) => regular.widthOfTextAtSize(text, 8)).slice(0, 3).forEach((line, index) => cover.drawText(line, { x: 44, y: 145 - index * 11, size: 8, font: regular, color: ink }));
+  cover.drawText(pdfText(`${snapshotLabel}: ${report.filters.snapshotSha256}`), { x: 44, y: 72, size: 6.5, font: regular, color: muted, maxWidth: 507 });
+
+  const addDetailPage = (section: string) => {
     const page = document.addPage([595.28, 841.89]);
-    page.drawRectangle({ x: 0, y: 742, width: 595.28, height: 100, color: rgb(0.035, 0.14, 0.23) });
-    page.drawText("N", { x: 42, y: 778, size: 28, font: bold, color: rgb(0.36, 0.86, 0.82) });
-    wrapMeasuredText(title, 455, (text) => bold.widthOfTextAtSize(text, 14)).slice(0, 2).forEach((line, index) => page.drawText(line, { x: 83, y: 795 - index * 17, size: 14, font: bold, color: rgb(1, 1, 1) }));
-    page.drawText(pdfText(tenantName), { x: 83, y: 758, size: 8.5, font: regular, color: rgb(0.74, 0.82, 0.86), maxWidth: 455 });
-    page.drawText(pdfText(`${audienceLabel}: ${audience} · ${issuedLabel}: ${issued}`), { x: 42, y: 714, size: 8.5, font: regular, color: rgb(0.35, 0.43, 0.5), maxWidth: 511 });
-    let cursor = 685;
-    pageRows.forEach((row) => {
-      page.drawRectangle({ x: 42, y: cursor - row.height, width: 511, height: row.height, borderColor: rgb(0.82, 0.87, 0.9), borderWidth: 1, color: rgb(0.97, 0.98, 0.985) });
-      row.labelLines.forEach((line, index) => page.drawText(line, { x: 57, y: cursor - 20 - index * 12, size: 8.5, font: regular, color: rgb(0.23, 0.31, 0.38) }));
-      row.valueLines.forEach((line, index) => page.drawText(line, { x: 352, y: cursor - 20 - index * 12, size: 9, font: bold, color: rgb(0.03, 0.36, 0.42) }));
-      cursor -= row.height + 8;
-    });
-    page.drawText(`ID: ${report.id}`, { x: 42, y: 54, size: 7, font: regular, color: rgb(0.48, 0.54, 0.59) });
-    page.drawText(`${pageIndex + 1} / ${pages.length}`, { x: 520, y: 54, size: 7, font: regular, color: rgb(0.48, 0.54, 0.59) });
-    page.drawText(pdfText(message(report.locale, "screen.reportsView.a8fffbd02184")), { x: 42, y: 39, size: 7, font: regular, color: rgb(0.48, 0.54, 0.59) });
+    page.drawText("N", { x: 42, y: 790, size: 22, font: bold, color: teal });
+    page.drawText("NOMBRAMIENTOS", { x: 72, y: 800, size: 8, font: bold, color: navy });
+    page.drawText(pdfText(section.toUpperCase()), { x: 428, y: 800, size: 7.5, font: bold, color: muted, maxWidth: 125 });
+    page.drawRectangle({ x: 42, y: 756, width: 511, height: 1.5, color: gold });
+    wrapMeasuredText(title, 500, (text) => bold.widthOfTextAtSize(text, 20)).slice(0, 2).forEach((line, index) => page.drawText(line, { x: 42, y: 718 - index * 24, size: 20, font: bold, color: navy }));
+    page.drawText(pdfText(tenantName), { x: 42, y: 671, size: 8.5, font: regular, color: muted, maxWidth: 500 });
+    return { page, cursor: 642 };
+  };
+
+  let detail = addDetailPage(directoryReport ? message(report.locale, "reports.studio.departments.title") : title);
+  let currentDepartment = "";
+  let rowIndex = 0;
+  const beginDepartment = (department: string, continuation = false) => {
+    if (detail.cursor < 128) detail = addDetailPage(department);
+    detail.page.drawRectangle({ x: 42, y: detail.cursor - 35, width: 511, height: 35, color: navy });
+    const heading = continuation ? `${department} - cont.` : department;
+    detail.page.drawText(pdfText(heading), { x: 55, y: detail.cursor - 22, size: 10.5, font: bold, color: rgb(1, 1, 1), maxWidth: 480 });
+    detail.cursor -= 52;
+    detail.page.drawText(pdfText(fieldLabel.toUpperCase()), { x: 55, y: detail.cursor, size: 7, font: bold, color: muted });
+    detail.page.drawText(pdfText(valueLabel.toUpperCase()), { x: 302, y: detail.cursor, size: 7, font: bold, color: muted });
+    detail.cursor -= 15;
+    rowIndex = 0;
+  };
+
+  for (const [rawLabel, rawValue] of rows) {
+    const label = pdfText(String(rawLabel));
+    const value = pdfText(String(rawValue));
+    const labelParts = label.split(" · ");
+    const department = directoryReport && labelParts.length > 1 ? labelParts.shift()! : "";
+    const visibleLabel = directoryReport && department ? labelParts.join(" · ") : label;
+    const labelLines = wrapMeasuredText(visibleLabel, directoryReport ? 220 : 270, (text) => regular.widthOfTextAtSize(text, 8.3));
+    const valueLines = wrapMeasuredText(value, directoryReport ? 235 : 180, (text) => regular.widthOfTextAtSize(text, 8.3));
+    const height = Math.max(directoryReport ? 31 : 43, Math.max(labelLines.length, valueLines.length) * 11 + 17);
+    if (directoryReport && department !== currentDepartment) {
+      if (detail.cursor < height + 100) detail = addDetailPage(department);
+      currentDepartment = department;
+      beginDepartment(department);
+    } else if (detail.cursor < height + 72) {
+      detail = addDetailPage(currentDepartment || title);
+      if (directoryReport && currentDepartment) beginDepartment(currentDepartment, true);
+    }
+    const progress = report.reportType === "progress" ? value.match(/(\d+)\s*\/\s*(\d+).*?(\d+)\s*%/u) : null;
+    const rowBottom = detail.cursor - height;
+    detail.page.drawRectangle({ x: 42, y: rowBottom, width: 511, height, color: rowIndex % 2 === 0 ? cloud : rgb(1, 1, 1) });
+    if (directoryReport && rowIndex === 0) detail.page.drawRectangle({ x: 42, y: rowBottom, width: 3, height, color: gold });
+    labelLines.forEach((line, index) => detail.page.drawText(line, { x: 55, y: detail.cursor - 18 - index * 11, size: 8.3, font: directoryReport && rowIndex === 0 ? bold : regular, color: ink }));
+    if (progress) {
+      const percent = Math.max(0, Math.min(100, Number(progress[3])));
+      detail.page.drawRectangle({ x: 322, y: detail.cursor - 25, width: 175, height: 7, color: rgb(0.84, 0.88, 0.89) });
+      detail.page.drawRectangle({ x: 322, y: detail.cursor - 25, width: 175 * percent / 100, height: 7, color: teal });
+      detail.page.drawText(`${percent}%`, { x: 507, y: detail.cursor - 27, size: 8.3, font: bold, color: teal });
+      detail.page.drawText(pdfText(`${progress[1]} / ${progress[2]}`), { x: 252, y: detail.cursor - 27, size: 8.3, font: bold, color: ink });
+    } else valueLines.forEach((line, index) => detail.page.drawText(line, { x: directoryReport ? 302 : 347, y: detail.cursor - 18 - index * 11, size: 8.3, font: directoryReport && rowIndex === 0 ? bold : regular, color: directoryReport && rowIndex === 0 ? navy : muted }));
+    detail.cursor -= height;
+    rowIndex += 1;
+  }
+
+  if (!rows.length) {
+    detail.page.drawRectangle({ x: 42, y: 535, width: 511, height: 70, color: cloud });
+    detail.page.drawText(pdfText(message(report.locale, "screen.reportsView.4d6140b354ec")), { x: 58, y: 568, size: 10, font: bold, color: muted });
+  }
+  const allPages = document.getPages();
+  allPages.forEach((page, pageIndex) => {
+    page.drawText(pdfText(tenantName.toUpperCase()), { x: 42, y: 39, size: 6.8, font: bold, color: muted, maxWidth: 220 });
+    page.drawText(pdfText(title), { x: 235, y: 39, size: 6.8, font: regular, color: muted, maxWidth: 250 });
+    page.drawText(`${pageIndex + 1} / ${allPages.length}`, { x: 518, y: 39, size: 6.8, font: bold, color: navy });
+    page.drawText(`ID: ${report.id}`, { x: 42, y: 24, size: 5.8, font: regular, color: muted, maxWidth: 270 });
+    page.drawText(pdfText(message(report.locale, "screen.reportsView.a8fffbd02184")), { x: 318, y: 24, size: 5.8, font: regular, color: muted, maxWidth: 235 });
   });
   const bytes = await document.save();
   const copyBytes = new Uint8Array(bytes.byteLength);

@@ -106,13 +106,15 @@ test("el contrato web representa el artefacto cifrado y nunca un cuerpo binario 
   assert.match(navigationSource, /reports: \{ all: \["report\.read"\] \}/u);
 });
 
-test("el acta emitida exige una sesión y usa asistencia, agenda y decisiones sanitizadas", () => {
+test("sesiones ofrece índice completo y acta detallada con asistencia, agenda y decisiones sanitizadas", () => {
   const branch = source.slice(source.indexOf('if (reportType === "session_minutes")'), source.indexOf('if (reportType === "cycle_history")'));
   for (const field of ["workflow.sessionMinutes", "minutes.attendance", "minutes.agendaItems", "item.decision"]) {
     assert.ok(branch.includes(field), `falta ${field}`);
   }
   assert.match(source, /selected\.id === "session_minutes" && sessionId !== "all" \? sessionId : undefined/u);
-  assert.match(source, /reportSelectionComplete/u);
+  assert.match(source, /sessionId === "all"/u);
+  assert.match(branch, /workflow\.sessions\.map/u);
+  assert.match(source, /reports\.studio\.allSessions/u);
   assert.match(workflowApiSource, /if \(sessionId\) query\.set\("sessionId", sessionId\)/u);
   assert.match(workflowApiSource, /displayEnvelope: Envelope \| null; photoSnapshot: StoredPhotoRecord \| null/u);
   assert.match(source, /attendanceNames\.get\(entry\.identityId\)/u);
@@ -121,6 +123,29 @@ test("el acta emitida exige una sesión y usa asistencia, agenda y decisiones sa
   assert.match(source, /message\(locale, "screen\.reportsView\.c5f9db0a521f"\)/u);
   assert.equal(getMessage("en", "screen.reportsView.c5f9db0a521f"), "Historical minutes names could not be authenticated.");
   assert.doesNotMatch(branch, /notesEnvelope|evidenceEnvelope|actorIdentityId/u);
+});
+
+test("el estudio empresarial expone los cinco casos ejecutivos y exportación PDF jerárquica", () => {
+  for (const reportType of ["cycle_summary", "department", "progress", "session_minutes", "elected_board"]) {
+    assert.match(source, new RegExp(`reportType: "${reportType}"`, "u"));
+  }
+  const studioKeys = [
+    "reports.studio.executive.title",
+    "reports.studio.departments.title",
+    "reports.studio.pending.title",
+    "reports.studio.sessions.title",
+    "reports.studio.organigram.title",
+  ] as const;
+  for (const key of studioKeys) {
+    assert.equal(typeof getMessage("es", key), "string");
+    assert.equal(typeof getMessage("en", key), "string");
+    assert.equal(typeof getMessage("fr", key), "string");
+  }
+  assert.match(source, /aria-pressed=\{active\}/u);
+  assert.match(source, /value\.pending\.map/u);
+  assert.match(artifactSource, /beginDepartment/u);
+  assert.match(artifactSource, /value\.match\(\/\(\\d\+\)\\s\*\\\/\\s\*\(\\d\+\)/u);
+  assert.match(artifactSource, /pageIndex \+ 1/u);
 });
 
 test("todos los reportes de ciclo usan el snapshot histórico y sólo persisten filtros que aplican", () => {

@@ -37,6 +37,7 @@ test("conecta las siete ceremonias mediante challenge y mutación idempotente", 
   assert.match(clientSource, /challengeIdempotencyKey = idempotencyKey\(\)/u);
   assert.match(clientSource, /mutationIdempotencyKey = idempotencyKey\(\)/u);
   assert.match(clientSource, /retryIdempotent/u);
+  assert.match(clientSource, /error\.code\.endsWith\("_UNCERTAIN"\)/u);
 });
 
 test("la ceremonia mantiene secretos en cliente y solo persiste objetos CryptoKey", () => {

@@ -20,6 +20,19 @@ test("accepts a browser bundle wired only to the canonical localhost API", () =>
   }
 });
 
+test("accepts the dedicated GestionChurch module API origin", () => {
+  const directory = fixtureDirectory();
+  try {
+    writeFileSync(path.join(directory, "app.js"), 'const api="http://localhost:4100";\n', "utf8");
+    assert.equal(assertCanonicalBrowserOriginBundle(directory, {
+      requiredOrigin: "http://localhost:4100",
+      forbiddenOrigins: ["http://127.0.0.1:4100"],
+    }).canonicalOriginPresent, true);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("fails closed when a build bakes an IP API origin into any nested browser chunk", () => {
   const directory = fixtureDirectory();
   try {

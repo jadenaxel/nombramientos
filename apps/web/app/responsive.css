@@ -1,0 +1,101 @@
+/* Shared responsive boundaries; tables and diagrams scroll locally, never the page. */
+body { min-width: 0; }
+.app-grid > *, .page-wrap, .page-wrap > *, .surface-card, .card-heading > *, fieldset { min-width: 0; }
+.page-wrap { container-type: inline-size; container-name: nominations-workspace; }
+fieldset { min-inline-size: 0; }
+.page-wrap :where(div,section,article,header,footer,form,label,fieldset) { min-width: 0; }
+.page-wrap :where(h1,h2,h3,p,small,strong,code,label),
+[data-slot=dialog-content] :where(h2,h3,p,small,strong,code,label),
+[data-slot=alert-dialog-content] :where(h2,h3,p,small,strong,code,label) { overflow-wrap: anywhere; }
+input,select,textarea { min-width: 0; max-width: 100%; }
+.button-row > *, .page-heading > *, .card-heading > * { max-width: 100%; }
+.button-row [data-slot=button], .page-heading [data-slot=button] { height: auto; min-height: 40px; white-space: normal; line-height: 1.4; padding-block: 9px; }
+[data-slot=table-container] { min-width: 0; max-width: 100%; overscroll-behavior-inline: contain; }
+[data-slot=dialog-content], [data-slot=alert-dialog-content] {
+  min-width: 0; max-height: calc(100dvh - 2rem); overflow-y: auto; overscroll-behavior: contain;
+}
+[data-slot=dialog-content] > *, [data-slot=alert-dialog-content] > * { min-width: 0; }
+[data-slot=dialog-title], [data-slot=alert-dialog-title] { line-height: 1.3; }
+[data-slot=dialog-content]:has([data-slot=dialog-close]) [data-slot=dialog-header] { padding-right: 28px; }
+.mobile-sheet { max-height: 100dvh; padding-top: max(24px,env(safe-area-inset-top))!important; padding-bottom: max(24px,env(safe-area-inset-bottom))!important; }
+.org-tree, .org-branches, .org-root > div, .org-department, .org-role > div { min-width: 0; }
+.topbar > div { min-width: 0; }
+.page-wrap [data-slot=badge] { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.unlock-card > div { min-width: 0; }
+
+@container nominations-workspace (max-width: 720px) {
+  .work-grid, .catalog-layout, .results-grid, .round-grid, .members-layout,
+  .reports-layout, .access-admin-grid, .platform-grid, .access-grid { grid-template-columns: minmax(0,1fr); }
+  .active-session { grid-template-columns: minmax(0,1fr); }
+  .org-branches { grid-template-columns: minmax(0,1fr); }
+}
+
+@media (max-width: 1023px) {
+  html { scroll-padding-block: 100px calc(110px + env(safe-area-inset-bottom)); }
+  .topbar { height: auto; min-height: 72px; gap: 8px; padding-block: 10px; }
+  .topbar > .lg\:hidden { flex: 1 1 auto; }
+  .topbar > button.lg\:hidden { flex: 0 0 auto; }
+  .topbar > div:last-child { flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+  .topbar > div.lg\:hidden { overflow-wrap: anywhere; }
+  /* The ordinary session header owns its responsive rows. Recovery/standalone
+     headers keep their separate layout and all controls retain their labels. */
+  .topbar.session-topbar { display: grid; grid-template-columns: 44px minmax(0,1fr); }
+  .topbar.session-topbar > .topbar-compact-brand { grid-column: 2; min-width: 0; max-width: none; overflow-wrap: normal; }
+  .topbar.session-topbar > .topbar-compact-brand span { white-space: normal; overflow-wrap: break-word; }
+  .topbar.session-topbar > .topbar-actions { grid-column: 1/-1; margin-left: 0; min-width: 0; max-width: 100%; flex-shrink: 1; gap: 8px; }
+  .topbar.session-topbar > .topbar-actions [data-slot=button] { min-height: 44px; }
+  .page-wrap { padding-bottom: calc(116px + env(safe-area-inset-bottom)); }
+  .mobile-nav { height: auto; min-height: calc(69px + env(safe-area-inset-bottom)); }
+  .mobile-nav a, .mobile-nav button { min-height: 48px; text-align: center; }
+  .mobile-nav span { font-size: .8125rem; line-height: 1.35; overflow-wrap: anywhere; }
+  input:not([type=checkbox]):not([type=radio]), select, textarea,
+  [data-slot=input], [data-slot=textarea], [data-slot=select-trigger], [data-slot=native-select] {
+    font-size: max(16px,1rem); min-height: 44px;
+  }
+}
+
+@media (max-width: 600px) {
+  .unlock-card { grid-template-columns: minmax(0,1fr); padding: 22px 16px; }
+  .unlock-card form { grid-template-columns: minmax(0,1fr); }
+  .topbar { padding-inline: max(12px,env(safe-area-inset-left)) max(12px,env(safe-area-inset-right)); }
+  .topbar > div.lg\:hidden { flex-basis: 90px; }
+  .topbar [data-slot=button] { min-width: 44px; min-height: 44px; }
+  .profile-trigger { padding-inline: 4px; }
+  .profile-trigger > svg { display: none; }
+  .page-heading, .card-heading { flex-wrap: wrap; align-items: flex-start; gap: 12px; }
+  .page-heading > div:first-child { flex: 1 1 100%; }
+  .page-heading h1 { line-height: 1.2; }
+  .button-row { gap: 10px; }
+  .button-row > [data-slot=button] { flex: 1 1 140px; min-height: 44px; }
+  [data-slot=dialog-content], [data-slot=alert-dialog-content] {
+    width: calc(100% - 24px); max-width: calc(100% - 24px); max-height: calc(100dvh - 24px);
+    padding: 22px 16px max(20px,env(safe-area-inset-bottom));
+  }
+  [data-slot=dialog-close], [data-slot=sheet-close] {
+    display: grid; place-items: center; width: 44px; height: 44px; top: 8px; right: 8px;
+  }
+  [data-slot=dialog-footer] [data-slot=button], [data-slot=alert-dialog-footer] [data-slot=button] {
+    min-height: 44px; height: auto; white-space: normal; line-height: 1.4; padding-block: 10px;
+  }
+  .session-stats { grid-template-columns: minmax(0,1fr); gap: 12px; }
+  .session-stats > div { padding: 0; border: 0; }
+  .session-stats div:last-child { display: block; }
+  .org-tree { padding: 16px 12px; }
+  .org-role strong { white-space: normal; }
+  .report-preview { padding: 14px 10px; }
+  .report-preview > * { max-width: 100%; }
+  .report-list article { grid-template-columns: auto minmax(0,1fr); }
+  .report-list article > :last-child { grid-column: 2; }
+}
+
+@media (max-width: 360px) {
+  .topbar { display: grid; grid-template-columns: 44px minmax(0,1fr); }
+  .topbar > div.lg\:hidden strong { white-space: nowrap; }
+  .topbar > div:last-child { grid-column: 1/-1; margin-left: 0; justify-content: flex-end; }
+}
+
+@media (pointer: coarse) {
+  [data-slot=button], [data-slot=dialog-close], [data-slot=sheet-close], [data-slot=alert-dialog-action], [data-slot=alert-dialog-cancel] { min-height: 44px; }
+  [data-slot=button][data-size^=icon] { min-width: 44px; }
+  [data-slot=checkbox], [data-slot=radio-group-item] { width: 24px; height: 24px; }
+}

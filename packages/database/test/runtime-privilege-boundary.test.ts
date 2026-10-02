@@ -101,9 +101,18 @@ describe("tenant PostgreSQL privilege regression contract", () => {
     ) + readFileSync(
       path.join(packageRoot, "migrations", "tenant", "036_transactional_invitation_grantor_lock.sql"),
       "utf8",
+    ) + readFileSync(
+      path.join(packageRoot, "migrations", "tenant", "037_gestionchurch_federation.sql"),
+      "utf8",
+    ) + readFileSync(
+      path.join(packageRoot, "migrations", "tenant", "038_gestionchurch_explicit_custodian_role.sql"),
+      "utf8",
+    ) + readFileSync(
+      path.join(packageRoot, "migrations", "tenant", "039_device_bound_http_sessions.sql"),
+      "utf8",
     );
     const publicRevocations = [...migration.matchAll(
-      /REVOKE\s+ALL(?:\s+PRIVILEGES)?\s+ON\s+FUNCTION\s+public\.([a-z_][a-z0-9_]*\s*\([^;]*?\))\s+FROM\s+PUBLIC\s*;/giu,
+      /REVOKE\s+ALL(?:\s+PRIVILEGES)?\s+ON\s+FUNCTION\s+(?:public\.)?([a-z_][a-z0-9_]*\s*\([^;]*?\))\s+FROM\s+PUBLIC\s*;/giu,
     )].map((match) => normalizeSignature(match[1] ?? "")).sort();
 
     expect([...new Set(publicRevocations)].sort()).toEqual(expect.arrayContaining(

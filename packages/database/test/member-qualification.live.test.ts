@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { bindDirectFixtureSession } from "./direct-device-session-fixture.js";
 import { Pool, type PoolClient } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { assertWorkspacePostgresUrl } from "../scripts/script-config.js";
@@ -502,6 +503,7 @@ async function setContext(client: PoolClient, tenantId: string, identityId: stri
             set_config('app.session_id',$3,true),set_config('app.request_id',$4,true)`,
     [tenantId, identityId, randomUUID(), randomUUID()],
   );
+  await bindDirectFixtureSession(client);
 }
 
 async function cleanupFixture(current: Fixture): Promise<void> {

@@ -153,6 +153,14 @@ export interface PendingReportIssuance {
 export class TenantStore {
   public constructor(private readonly client: PoolClient) {}
 
+  public async syncGestionChurchRoles(identityId: string, roleCodes: readonly string[]): Promise<number> {
+    const result = await this.client.query<{ count: number }>(
+      `SELECT sync_gestionchurch_federated_roles($1,$2::text[]) AS count`,
+      [identityId, [...roleCodes]],
+    );
+    return result.rows[0]?.count ?? 0;
+  }
+
   public async getPermissions(identityId: string): Promise<readonly string[]> {
     const result = await this.client.query<{ code: string }>(
       `SELECT DISTINCT p.code

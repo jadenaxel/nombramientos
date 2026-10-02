@@ -1,9 +1,11 @@
 import type { ServerResponse } from "node:http";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
+import type { RequestPrincipal } from "@nombramientos/database";
 import { ApiError, forbidden, unauthorized } from "../lib/errors.js";
 import { safeLogError } from "../lib/log-safety.js";
 import { createSessionBinding, SESSION_COOKIE, sha256 } from "./auth-service.js";
+import { requireCurrentGestionChurchAccess } from "./gestionchurch-integration-routes.js";
 
 const querySchema = z.object({
   after: z.coerce.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
@@ -118,8 +120,17 @@ export async function registerEventRoutes(app: FastifyInstance): Promise<void> {
           || !hasAnyPermission(refreshedPrincipal.permissions, ROUND_STREAM_PERMISSIONS)
         ) break;
 
+        // Authentication at stream-open is not a lifetime grant. In particular
+        // a federated source logout and a wrapping-device revocation must close
+        // an existing stream, not merely reject the next browser reconnect.
+        const streamPrincipal = await revalidateStreamAuthority(app, initialPrincipal, refreshedPrincipal, request.id)
+          .catch((error: unknown) => {
+            if (!controller.signal.aborted) app.log.warn({ safeError: safeLogError(error), requestId: request.id }, "SSE device/source revalidation failed");
+            return null;
+          });
+        if (!streamPrincipal || controller.signal.aborted) break;
         let fetchFailed = false;
-        const events = await app.database.withPrincipal(refreshedPrincipal, request.id, (tenant) =>
+        const events = await app.database.withPrincipal(streamPrincipal, request.id, (tenant) =>
           tenant.listEvents(cursor, 100),
         ).catch((error: unknown) => {
           fetchFailed = true;
@@ -165,6 +176,35 @@ export async function registerEventRoutes(app: FastifyInstance): Promise<void> {
       safeEnd(response);
     }
   });
+}
+
+export async function revalidateStreamAuthority(
+  app: FastifyInstance,
+  original: RequestPrincipal,
+  refreshed: RequestPrincipal,
+  requestId: string,
+): Promise<RequestPrincipal> {
+  if (original.sessionId !== refreshed.sessionId || original.identityId !== refreshed.identityId
+    || original.activeTenantId !== refreshed.activeTenantId) {
+    throw unauthorized("The live stream session context changed");
+  }
+  await requireCurrentGestionChurchAccess(app, refreshed);
+  if (original.tenantKind !== "real") return refreshed;
+  if (!original.provenDeviceId) throw unauthorized("The live stream requires a verified device");
+  const binding = await app.database.withDeviceSessionPrincipal(refreshed, requestId, (store) =>
+    store.getBinding(refreshed.identityId, refreshed.sessionId));
+  const sourceSessionId = await app.database.control.getGestionChurchSessionBinding(
+    refreshed.sessionId, refreshed.identityId, refreshed.activeTenantId,
+  );
+  if (!binding || binding.status !== "active" || binding.deviceStatus !== "active" || !binding.hasActiveGrant
+    || binding.deviceId !== original.provenDeviceId || binding.sourceSessionId !== sourceSessionId) {
+    throw unauthorized("The live stream device was revoked or changed");
+  }
+  // The original request's nonce/signature has already been consumed once.
+  // Carry its proven device, never one declared by an incoming event or URL.
+  // The data transaction pins this same binding/device again to serialize reads
+  // with revocation; a reconnect must produce a fresh request proof.
+  return { ...refreshed, provenDeviceId: original.provenDeviceId };
 }
 
 function reserveConnection(

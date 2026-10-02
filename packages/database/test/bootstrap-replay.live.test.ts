@@ -39,7 +39,7 @@ const requests = [
 ] as const satisfies readonly TenantProvisionRequest[];
 
 live("canonical bootstrap replay", () => {
-  it("preserves Demo and pending Ozama byte-for-byte at the control/config/catalog/schema boundaries", async () => {
+  it("preserves Demo and Ozama byte-for-byte across pending or federated-active lifecycles", async () => {
     if (!adminUrl) throw new Error("Local administrator URL is unavailable");
     const administrator = new URL(adminUrl);
     const control = new Pool({ connectionString: withoutDatabase(adminUrl, "nombramientos_control"), max: 1, connectionTimeoutMillis: 5_000 });
@@ -74,8 +74,9 @@ live("canonical bootstrap replay", () => {
       const afterTenants = await Promise.all(routes.rows.map((route) => tenantSnapshot(adminUrl, route.database_name)));
       expect(results).toMatchObject([
         { tenantId: requests[0].tenantId, state: "active", reused: true },
-        { tenantId: requests[1].tenantId, state: "pending_activation", reused: true },
+        { tenantId: requests[1].tenantId, reused: true },
       ]);
+      expect(["active", "pending_activation"]).toContain(results[1]?.state);
       expect(afterControl).toEqual(beforeControl);
       expect(afterTenants).toEqual(beforeTenants);
       expect(secrets.hasSecret).not.toHaveBeenCalled();

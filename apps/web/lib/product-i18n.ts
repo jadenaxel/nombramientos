@@ -3,6 +3,7 @@ import type { Permission } from "@nombramientos/domain";
 
 import { ApiError, type Locale } from "./api";
 import { formatIcuMessage } from "./icu-message";
+import { DeviceSessionClientError } from "./device-session-proof";
 
 export type LocalizedNames = Partial<Record<Locale, string>> | null | undefined;
 
@@ -110,6 +111,13 @@ export function permissionDescription(
 }
 
 const apiCodeKeys: Readonly<Record<string, MessageKey>> = {
+  REQUEST_TIMEOUT: "error.requestTimeout",
+  REQUEST_CANCELLED: "error.requestCancelled",
+  REQUEST_TIMEOUT_UNCERTAIN: "error.requestUncertain",
+  REQUEST_CANCELLED_UNCERTAIN: "error.requestUncertain",
+  NETWORK_ERROR: "error.transient",
+  NETWORK_ERROR_UNCERTAIN: "error.requestUncertain",
+  INVALID_RESPONSE_UNCERTAIN: "error.requestUncertain",
   UNAUTHENTICATED: "error.unauthenticated",
   AUTHENTICATION_REQUIRED: "error.unauthenticated",
   MFA_ASSURANCE_REQUIRED: "error.mfaStepUp",
@@ -118,6 +126,7 @@ const apiCodeKeys: Readonly<Record<string, MessageKey>> = {
   FORBIDDEN: "error.forbidden",
   PERMISSION_DENIED: "error.forbidden",
   PERMISSION_ESCALATION: "error.forbidden",
+  GESTIONCHURCH_MANAGED_OPERATIONAL_ROLE: "error.centralOperationalAssignment",
   NOT_FOUND: "error.notFound",
   VALIDATION_ERROR: "error.validation",
   PHASE_CONFLICT: "error.phaseConflict",
@@ -213,6 +222,13 @@ const identitySecurityErrors: Readonly<Record<string, Readonly<Record<Locale, st
 };
 
 export function localizedApiError(error: unknown, locale: Locale, fallbackKey: MessageKey = "error.generic"): string {
+  const deviceCode = error instanceof DeviceSessionClientError || error instanceof ApiError ? error.code : undefined;
+  if (deviceCode?.startsWith("DEVICE_")) {
+    const key: MessageKey = ["DEVICE_SESSION_LOCAL_KEY_REQUIRED", "DEVICE_SESSION_LOCAL_KEY_INVALID", "DEVICE_SIGNING_KEY_CHANGED", "DEVICE_SESSION_ALREADY_BOUND"].includes(deviceCode)
+      ? "deviceSession.recoveryHelp" : "deviceSession.failedHelp";
+    const base = message(locale, key);
+    return error instanceof ApiError && error.requestId ? `${base} (${message(locale, "audit.correlationId", { id: error.requestId })})` : base;
+  }
   if (!(error instanceof ApiError)) return message(locale, fallbackKey);
   if (error.code === "PASSKEY_CEREMONY_CANCELLED") {
     return {

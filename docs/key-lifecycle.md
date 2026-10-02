@@ -4,7 +4,7 @@
 
 Para tenants `real`, la clave simétrica de contenido se genera como 32 bytes aleatorios en el cliente. Cada dispositivo genera localmente un par HPKE P-256 y conserva su clave privada; la API recibe únicamente la clave pública, su huella SHA-256 y un sobre HPKE que contiene la clave de tenant. La copia de recuperación también se crea y abre en cliente. Ningún endpoint de este módulo acepta contraseña, clave de tenant en claro, clave privada ni copia de recuperación abierta.
 
-La autenticación de cuenta sigue usando el flujo local contraseña + TOTP existente. Antes de cada ceremonia se exige una sesión creada mediante contraseña y MFA durante los últimos cinco minutos; si caducó, `KEY_LIFECYCLE_STEP_UP_REQUIRED` obliga a iniciar sesión nuevamente. Esta contraseña de autenticación nunca forma parte del KDF ni del sobre de la clave de tenant.
+La autenticación local conserva sus comprobaciones de contraseña, MFA/passkey y frescura para las ceremonias. Las sesiones federadas GestionChurch delegan actualmente la autenticación al proveedor: en la fase 1 el módulo no exige un segundo factor local ni demuestra que el proveedor haya aplicado MFA. Esto no elimina los desafíos exactos, permisos, membresías ni controles de grants E2EE. La contraseña de autenticación nunca forma parte del KDF ni del sobre de la clave de tenant.
 
 No existe escrow, clave maestra global ni endpoint de soporte que reconstruya una clave. Perder todos los grants privados y la copia offline hace que el contenido cifrado quede definitivamente irrecuperable.
 
@@ -20,10 +20,10 @@ Las funciones cliente viven en `packages/e2ee/src/tenant-key-lifecycle.ts`. La a
 
 ## Protocolo HTTP común
 
-Todas las mutaciones requieren cookie de sesión, `X-CSRF-Token` y un `Idempotency-Key` UUID. La solicitud se construye primero en cliente sin `challengeId`:
+Las mutaciones del ciclo de claves requieren cookie de sesión, `X-CSRF-Token` y un `Idempotency-Key` UUID. En tenants reales, las operaciones protegidas requieren además la prueba por navegador descrita en [ADR-0008](adr/0008-device-bound-module-sessions.md); la prueba de solicitud y el desafío de la ceremonia tienen propósitos y consumos diferentes. La solicitud de la ceremonia se construye primero en cliente sin `challengeId`:
 
 1. Enviar `POST /v1/key-lifecycle/challenges` con `{ "operation": "…", "request": <solicitud exacta> }` y una clave de idempotencia propia.
-2. La API valida MFA reciente, permiso, membresías, estructura criptográfica y, para recuperación, la firma. Devuelve un desafío ligado a sesión, actor, operación y hash canónico exacto, con expiración de cinco minutos.
+2. La API valida la política de autenticación aplicable (local o federada), permiso, membresías, estructura criptográfica y, para recuperación, la firma. Devuelve un desafío ligado a sesión, actor, operación y hash canónico exacto, con expiración de cinco minutos.
 3. Enviar la mutación correspondiente con los mismos campos de `request`, sin modificación, más `challengeId`, y una segunda clave de idempotencia.
 
 Modificar incluso un byte del sobre, destinatario, generación o razón hace fallar el consumo. Un desafío consumido, vencido o de otra sesión devuelve `KEY_LIFECYCLE_CHALLENGE_INVALID` (`428`). Repetir una mutación con la misma clave y cuerpo devuelve exactamente su resultado anterior; reutilizar la clave con otro cuerpo falla `IDEMPOTENCY_CONFLICT`.
@@ -46,11 +46,13 @@ El contrato actual incluye `HpkeSuite`, `WrappingPublicKey`, `RecoveryPublicKey`
 
 ## Ceremonias operativas
 
-La superficie ejecutable está en `/{es|en|fr}/app/settings`, implementada por `apps/web/components/nombramientos/key-lifecycle-view.tsx`. Incluye alta inicial, registro y comparación de huellas, desbloqueo local, aprobación de otro dispositivo/usuario, revocación con control de versión, rotación atómica, recuperación firmada y declaración de pérdida terminal. Para contenido protegido de tenants reales, `AppShell` usa el grant HPKE local y ya no exige el grant PBKDF2 legado de demostración. Los errores de API se traducen por código; nunca se muestra el mensaje interno del servidor.
+La administración completa se conserva en `/{es|en|fr}/app/settings`, implementada por `apps/web/components/nombramientos/key-lifecycle-view.tsx`. El acceso integrado usa una guía inicial contextual: un navegador reconocido verifica su vínculo en segundo plano; uno nuevo prepara sus claves locales y queda pendiente de autorización explícita. La guía pendiente muestra únicamente las opciones de alta inicial, recuperación o pérdida que permitan sus roles y el estado real, no controles de administración que el servidor rechazará. No obliga a volver a Configuración para cada ingreso ni concede claves automáticamente por ser administrador.
+
+La administración activa incluye registro y comparación de huellas, desbloqueo local, aprobación de otro dispositivo/usuario, revocación con control de versión, rotación atómica, recuperación firmada, declaración de pérdida terminal y cierre de sesiones. Para contenido protegido de tenants reales, `AppShell` usa el grant HPKE local y ya no exige el grant PBKDF2 legado de demostración. Los errores de API se traducen por código; nunca se muestra el mensaje interno del servidor. La autenticación MFA del modo independiente no se habilita en el perfil integrado GestionChurch durante esta fase.
 
 ### Primer administrador
 
-1. Aceptar invitación, configurar TOTP y volver a autenticarse si han pasado cinco minutos.
+1. Abrir el módulo desde GestionChurch con la autorización central vigente. En el modo independiente, aceptar la invitación y cumplir las comprobaciones MFA/frescura correspondientes.
 2. Generar `deviceId` y par HPKE en el cliente; registrar la clave pública.
 3. Generar la clave de tenant y el par Ed25519 de recuperación en el cliente.
 4. Sellar un grant para el propio dispositivo y crear la copia offline cifrada.
@@ -59,11 +61,11 @@ La superficie ejecutable está en `/{es|en|fr}/app/settings`, implementada por `
 
 ### Segundo dispositivo o usuario
 
-1. El destinatario autenticado con MFA genera el par HPKE y registra su clave pública como `pending`.
+1. El destinatario autenticado genera el par HPKE y registra su clave pública como `pending`; en el perfil integrado no se exige un segundo MFA local. Antes de acceder a contenido, demuestra posesión de su clave privada HPKE y enlaza su firmante independiente a la sesión.
 2. Administrador y destinatario comparan la huella por un canal independiente. La respuesta de la API por sí sola no autentica la clave.
 3. Un administrador que ya posee un grant activo abre localmente su grant, sella la misma clave para el dispositivo verificado y aprueba el nuevo grant con `recovery.activate`.
 
-Asignar un rol o ser administrador global nunca crea un grant. La API comprueba separadamente membresía, permiso y posesión de un grant administrativo vigente.
+Asignar un rol o ser administrador global nunca crea un grant. La API comprueba por separado membresía, permiso, prueba de posesión del navegador y grant vigente del dispositivo exacto. Una sesión pendiente no puede aprobarse por disponer de otro grant de la misma identidad.
 
 ### Delegación histórica deliberada
 
@@ -77,7 +79,7 @@ La UI enumera cobertura por dispositivo y generación. Cada grant aceptado queda
 
 Revocar excluye ese grant de las operaciones de ciclo de claves, pero no puede borrar copias que un dispositivo comprometido ya extrajo. Ante compromiso se debe rotar inmediatamente. La rotación crea localmente una clave y clave de recuperación nuevas; envía un sobre independiente para cada dispositivo conservado y conmuta todo en una transacción. Los grants de la generación anterior quedan `retired`, no `revoked`, para leer contenido histórico por su `keyId` exacto; el recifrado masivo, si se autoriza, es un flujo operacional separado. Nuevas escrituras deben usar solo la generación `active`.
 
-La sesión HTTP actual está ligada a identidad y contexto de navegador, no a una prueba de posesión del `deviceId` E2EE. Al escribir contenido, el servidor comprueba que la identidad tenga al menos un grant y dispositivo activos para la generación actual; no puede demostrar qué dispositivo produjo el ciphertext ni validar su plaintext. Por tanto, si una identidad conserva otro grant activo, revocar un dispositivo no invalida automáticamente sus sesiones ni impide que una sesión ya comprometida envíe un sobre opaco con el `keyId` actual. Rotar sí impide que el dispositivo retirado descifre contenido futuro, salvo material extraído o compromiso adicional. Diseñar device-bound writes requiere protocolo y revisión criptográfica independientes; no se simula con un `deviceId` declarativo.
+Desde el cambio D10 autorizado el 2 de octubre de 2026, la sesión HTTP de un tenant real está vinculada al dispositivo mediante prueba HPKE durante el alta y firmas ES256 de un uso en solicitudes protegidas. Cookie, identidad o `deviceId` declarativo no bastan. La transacción fija el vínculo de sesión y el dispositivo/grant/generación exactos; revocar un dispositivo invalida sus vínculos en esa misma base sin depender del cleanup suplementario de sesiones en control. Mantener otro dispositivo autorizado de la misma persona no reautoriza la cookie revocada. La API sigue sin validar el plaintext del ciphertext ni puede borrar claves o información extraídas previamente; rotar sigue siendo una operación separada y explícita ante compromiso.
 
 Al desbloquear la generación activa, la UI intenta abrir además cada grant propio `retired` cuyo dispositivo privado todavía exista localmente. Cada clave histórica se incorpora al llavero bajo el `tenantKeyId` exacto y los consumidores eligen mediante `envelope.keyId`; nunca se prueba el contenido antiguo con la generación actual. Que un grant histórico no esté disponible o no autentique no bloquea la generación activa: esa revisión se degrada de forma cerrada a “detalles no disponibles”. Esto preserva historia autorizada, no equivale a recifrado ni recupera una clave perdida.
 
@@ -91,11 +93,19 @@ El último grant online puede revocarse únicamente con `confirmLastActiveGrant:
 
 Las transacciones toman un advisory lock exclusivo por base de tenant, además de restricciones únicas sobre generación activa, dispositivo/generación y nonce de recuperación. Esto hace atómicas inicialización, aprobación, revocación, rotación y pérdida. No se permiten `DELETE` ni `TRUNCATE` al runtime.
 
-Los stores que escriben contenido protegido deben validar todos los `envelope.keyId` dentro de su propia transacción. El guard común separa Demo (`device_key_grants`) de tenants reales (`e2ee_key_generations` + `e2ee_key_grants` + `e2ee_key_devices`), exige estado activo y toma `FOR SHARE` sobre tenant, generación, grant y dispositivo antes de insertar. La rotación/revocación concurrente espera el commit; una generación que ya quedó `retired` no puede autorizar otra versión nueva. Esta fijación cierra TOCTOU de estado/clave, pero conserva el alcance por identidad descrito arriba.
+Los stores que escriben contenido protegido deben validar todos los `envelope.keyId` dentro de su propia transacción. El guard común separa Demo (`device_key_grants`) de tenants reales (`e2ee_key_generations` + `e2ee_key_grants` + `e2ee_key_devices`), exige estado activo y toma `FOR SHARE` sobre tenant, generación, grant y dispositivo antes de insertar. En el perfil real fija además `sessionId` y `provenDeviceId` del vínculo HTTP; no selecciona otro grant de la identidad como sustituto. El orden de locks compartidos/exclusivos serializa las operaciones frente a revocación y rotación; una generación que ya quedó `retired` no puede autorizar otra versión nueva.
+
+La migración aditiva039 añade tres tablas de metadatos HTTP, índices y dos triggers. Los nonces caducados se limpian en lotes máximos de500 mediante un trigger de sentencia propiedad del rol NOLOGIN del tenant, `SECURITY DEFINER` con `search_path=pg_catalog`, sin `DELETE` ni `EXECUTE` directo para runtime/PUBLIC. No elimina auditoría, grants, claves, sesiones ni negocio. El servidor determina expiración e `issuedAt`: el reloj del celular no se usa como autoridad para emitir firmas. Una conexión SSE presenta una prueba al abrir y revalida la sesión de origen exacta, dispositivo y grant vigente; la prueba inicial no se reutiliza como autorización ilimitada.
+
+La lectura autenticada de sesión devuelve su identificador exacto y la hora del servidor, sin extender la expiración absoluta; conserva la renovación de inactividad ya existente. La preparación del navegador usa ese identificador junto con identidad, tenant, fuente y firmante local antes de habilitar consultas protegidas. La navegación normal conserva el contexto de esa misma sesión; cierre, expiración, revocación y cambio de iglesia/identidad mantienen sus limpiezas explícitas. Un reloj local desajustado no sustituye la validación del servidor.
+
+Perder la clave de firma no permite sobrescribir una asociación inmutable. El reemplazo requiere otro navegador o un perfil nuevo y un alta/aprobación o recuperación explícita, sin borrar las claves antiguas; la guía no reemplaza el dispositivo dentro del perfil que conserva los registros anteriores.
 
 La auditoría guarda ids opacos, operación, hashes de solicitud/sobre, huellas públicas, versiones, conteos y resultado. No guarda ciphertext completo, claves, contraseñas, firmas ni material privado. El servidor sigue observando quién registra o autoriza un dispositivo, cuándo, para qué tenant, tamaños de peticiones, huellas y cantidad de destinatarios.
 
 ## Verificación local
+
+El corte D10 del 2 de octubre de 2026 se documenta separadamente en [GestionChurch](X:/CODE/GestionChurch/docs/premium-device-sessions-2026-10-02.md), con resultados API/DB/criptografía y navegador identificados por build. El navegador integrado del build `lBS4__cY65O1NCqX7bET8` aprobó4/4 casos, incluidas ambas reentradas después de cerrar sesiones, aprobación explícita y revocación de B conservando A. Se verificaron geometría/foco ES/EN/FR en anchos seleccionados y reloj cliente adelantado24 horas; no equivalen a pruebas físicas, revisión humana ni pentest independiente. El diagnóstico real de429 del conector se resolvió con presupuestos internos acotados, sin cachear autoridad ni relajar revocación. Los resultados históricos siguientes no acreditan automáticamente el protocolo nuevo ni sus recorridos actuales.
 
 ```powershell
 pnpm --filter @nombramientos/e2ee typecheck

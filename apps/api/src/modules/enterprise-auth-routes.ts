@@ -292,10 +292,26 @@ export async function registerEnterpriseAuthRoutes(app: FastifyInstance): Promis
     return respond(request, reply, { ...publicResult, signedOut: currentSessionRevoked });
   });
 
+  await registerSessionManagementRoutes(app);
+}
+
+/**
+ * Session self-management remains available with GestionChurch SSO. Register
+ * only these routes in module mode: exposing this surface must not activate
+ * Nombramientos' standalone password, passkey or MFA enrollment endpoints.
+ * Authentication, device proof and the same ownership/CSRF boundaries still
+ * apply; only the identity-provider step-up policy is delegated.
+ */
+export async function registerSessionManagementRoutes(app: FastifyInstance): Promise<void> {
   app.get("/v1/auth/sessions", { preHandler: [app.authenticate] }, async (request, reply) => {
     if (!request.principal) throw unauthorized();
+    const items = await app.enterpriseAuthService.listSessions(request.principal);
+    const labels = request.principal.tenantKind === "real"
+      ? await app.database.withDeviceSessionPrincipal(request.principal, request.id,
+        (store) => store.getOwnSessionLabels(request.principal!.identityId, items.map((item) => item.id)))
+      : new Map<string, string>();
     return respond(request, reply, {
-      items: await app.enterpriseAuthService.listSessions(request.principal),
+      items: items.map((item) => labels.has(item.id) ? { ...item, deviceLabel: labels.get(item.id)! } : item),
     });
   });
 

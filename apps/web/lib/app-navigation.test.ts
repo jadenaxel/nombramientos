@@ -9,7 +9,25 @@ import {
   firstAccessibleAppSection,
   firstAccessibleTenantSection,
   sectionRequiresContentKey,
+  tenantNavigationGroups,
+  tenantNavigationSections,
 } from "./app-navigation.ts";
+
+test("la navegación agrupa cada superficie una sola vez en el orden del flujo", () => {
+  assert.deepEqual(tenantNavigationGroups.map((group) => group.id), [
+    "home", "cycle", "organization", "insights", "administration",
+  ]);
+  const groupedSections = tenantNavigationGroups.flatMap((group) => [...group.sections]);
+  assert.deepEqual(groupedSections, [
+    "overview",
+    "workflow", "session", "results",
+    "members", "catalog", "committee", "organization",
+    "reports", "history", "library",
+    "access", "custody", "settings",
+  ]);
+  assert.equal(new Set(groupedSections).size, groupedSections.length);
+  assert.deepEqual([...groupedSections].sort(), [...tenantNavigationSections].sort());
+});
 
 test("las rutas con lecturas dependientes exigen capacidades compuestas", () => {
   assert.equal(canAccessAppSection("overview", []), false);

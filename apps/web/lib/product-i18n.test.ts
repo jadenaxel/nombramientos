@@ -11,6 +11,32 @@ import { formatIcuMessage } from "./icu-message.ts";
 const message = (locale: "es" | "en" | "fr", key: Parameters<typeof getMessage>[1], values: Readonly<Record<string, string | number>>) =>
   formatIcuMessage(locale, getMessage(locale, key), values);
 
+test("federated operational assignments have central authority guidance and preserve local identity actions", () => {
+  const source = readFileSync(path.resolve(import.meta.dirname, "../components/nombramientos/access-console.tsx"), "utf8");
+  assert.match(source, /binding\.identity\?\.gestionChurchManaged && isCentralOperationalRole/u);
+  assert.match(source, /identities\.find\([\s\S]*?gestionChurchManaged/u);
+  assert.match(source, /\/team/u);
+  for (const locale of ["es", "en", "fr"] as const) {
+    for (const key of ["screen.accessConsole.centralAssignments", "screen.accessConsole.manageCentralAssignments", "error.centralOperationalAssignment"] as const) {
+      assert.match(getMessage(locale, key), /GestionChurch/u);
+    }
+  }
+});
+
+test("settings describe federated authentication without claiming local MFA is enforced", () => {
+  const source = readFileSync(path.resolve(import.meta.dirname, "../components/nombramientos/workspace-view.tsx"), "utf8");
+  const settings = source.slice(source.indexOf("function SettingsView"), source.indexOf("function LibraryView"));
+  assert.match(settings, /const federated = session\.security\.authMethod === "federated"/u);
+  assert.match(settings, /federated \? "screen\.workspaceView\.federatedAuthentication" : "screen\.workspaceView\.f04a808f4703"/u);
+  assert.match(settings, /federated \? "screen\.workspaceView\.federatedIdentityProvider" : "screen\.workspaceView\.7dafe5d7202f"/u);
+  assert.match(settings, /federated && <p[^>]*>\{message\(locale, "screen\.workspaceView\.federatedMfaPolicy"\)\}/u);
+  for (const locale of ["es", "en", "fr"] as const) {
+    assert.match(getMessage(locale, "screen.workspaceView.federatedIdentityProvider"), /GestionChurch/u);
+    assert.match(getMessage(locale, "screen.workspaceView.federatedMfaPolicy"), /GestionChurch/u);
+    assert.notEqual(getMessage(locale, "screen.workspaceView.federatedIdentityProvider"), getMessage(locale, "screen.workspaceView.7dafe5d7202f"));
+  }
+});
+
 test("formats ICU plural branches in Spanish, English and French", () => {
   assert.equal(message("es", "participation.pendingCount", { count: 1 }), "1 persona pendiente");
   assert.equal(message("es", "participation.pendingCount", { count: 2 }), "2 personas pendientes");

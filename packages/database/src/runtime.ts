@@ -1,5 +1,6 @@
 import { Pool } from "pg";
 import { ControlPlaneStore } from "./control-store.js";
+import { DeviceSessionStore } from "./device-session-store.js";
 import { CoreWorkflowStore } from "./core-workflow-store.js";
 import { CustodyStore } from "./custody-store.js";
 import { EnterpriseAuthStore } from "./enterprise-auth-store.js";
@@ -81,6 +82,12 @@ export class DatabaseRuntime {
     return this.withSession(principal, requestId, work);
   }
 
+  public async withDeviceSessionPrincipal<T>(principal: RequestPrincipal, requestId: string,
+    work: (store: DeviceSessionStore) => Promise<T>): Promise<T> {
+    return this.tenantPools.withTenant({ tenantId: principal.activeTenantId, identityId: principal.identityId,
+      sessionId: principal.sessionId, requestId }, async (client) => work(new DeviceSessionStore(client)));
+  }
+
   public async withCustodyPrincipal<T>(
     principal: RequestPrincipal,
     requestId: string,
@@ -91,6 +98,7 @@ export class DatabaseRuntime {
       identityId: principal.identityId,
       sessionId: principal.sessionId,
       requestId,
+      ...(principal.provenDeviceId ? { provenDeviceId: principal.provenDeviceId } : {}),
     };
     return this.tenantPools.withTenant(context, async (client) => work(new CustodyStore(client)));
   }
@@ -105,6 +113,7 @@ export class DatabaseRuntime {
       identityId: principal.identityId,
       sessionId: principal.sessionId,
       requestId,
+      ...(principal.provenDeviceId ? { provenDeviceId: principal.provenDeviceId, deferDevicePin: true } : {}),
     };
     return this.tenantPools.withTenant(context, async (client) => work(new KeyLifecycleStore(client)));
   }
@@ -119,6 +128,7 @@ export class DatabaseRuntime {
       identityId: principal.identityId,
       sessionId: principal.sessionId,
       requestId,
+      ...(principal.provenDeviceId ? { provenDeviceId: principal.provenDeviceId } : {}),
     };
     return this.tenantPools.withTenant(context, async (client) => work(new CoreWorkflowStore(client)));
   }
@@ -133,6 +143,7 @@ export class DatabaseRuntime {
       identityId: principal.identityId,
       sessionId: principal.sessionId,
       requestId,
+      ...(principal.provenDeviceId ? { provenDeviceId: principal.provenDeviceId } : {}),
     };
     return this.tenantPools.withTenant(context, async (client) => work(new PhotoStore(client)));
   }
@@ -147,6 +158,7 @@ export class DatabaseRuntime {
       identityId: principal.identityId,
       sessionId: principal.sessionId,
       requestId,
+      ...(principal.provenDeviceId ? { provenDeviceId: principal.provenDeviceId } : {}),
     };
     return this.tenantPools.withTenant(context, async (client) => work(new MemberQualificationStore(client)));
   }
@@ -166,6 +178,20 @@ export class DatabaseRuntime {
       sessionId: input.acceptanceId,
       requestId: input.requestId,
     }, async (client) => work(new TenantStore(client)));
+  }
+
+  public async syncGestionChurchFederatedRoles(input: {
+    tenantId: string;
+    identityId: string;
+    roleCodes: readonly string[];
+    requestId: string;
+  }): Promise<number> {
+    return this.tenantPools.withTenant({
+      tenantId: input.tenantId,
+      identityId: input.identityId,
+      sessionId: input.requestId,
+      requestId: input.requestId,
+    }, async (client) => new TenantStore(client).syncGestionChurchRoles(input.identityId, input.roleCodes));
   }
 
   public async withFencedInvitationSagaTenant<T>(
@@ -221,6 +247,7 @@ export class DatabaseRuntime {
       identityId: session.identityId,
       sessionId: session.sessionId,
       requestId,
+      ...("provenDeviceId" in session && typeof session.provenDeviceId === "string" ? { provenDeviceId: session.provenDeviceId } : {}),
     };
     return this.tenantPools.withTenant(context, async (client) => work(new TenantStore(client)));
   }

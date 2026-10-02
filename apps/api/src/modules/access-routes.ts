@@ -239,9 +239,23 @@ async function assertBindingAllowed(
   ] as const);
   const role = roles.find((item) => item.id === roleId);
   if (!role) throw new ApiError(404, "ROLE_NOT_FOUND", "The requested tenant role is unavailable");
+  await requireCentralOperationalBindingAuthority(app, principal.activeTenantId, targetIdentityId, role.code);
   const delegable = new Set(capabilities.filter((item) => item.delegable).map((item) => item.code));
   if (role.permissions.some((permission) => !delegable.has(permission.code))) {
     throw new ApiError(403, "PERMISSION_ESCALATION", "The role exceeds the actor's delegable permissions");
+  }
+}
+
+export async function requireCentralOperationalBindingAuthority(
+  app: FastifyInstance,
+  tenantId: string,
+  targetIdentityId: string,
+  roleCode: string,
+): Promise<void> {
+  if (roleCode !== "COMMITTEE_MEMBER" && roleCode !== "TALLY_CUSTODIAN") return;
+  const federation = await app.database.control.getGestionChurchFederation(targetIdentityId, tenantId);
+  if (federation) {
+    throw new ApiError(403, "GESTIONCHURCH_MANAGED_OPERATIONAL_ROLE", "Commission and ballot-custodian assignments for this identity are managed in GestionChurch for the selected church");
   }
 }
 

@@ -10,6 +10,7 @@ const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   API_HOST: z.string().default("127.0.0.1"),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+  API_PUBLIC_ORIGIN: z.string().url().optional(),
   API_CORS_ORIGINS: z.string().default("http://localhost:3000"),
   API_TRUSTED_PROXY_CIDRS: z.string().max(4_096).optional(),
   API_COOKIE_SECURE: booleanString.default("false"),
@@ -25,12 +26,17 @@ const schema = z.object({
   DATABASE_SECRET_FILE: z.string().optional(),
   DATABASE_POOL_MAX_PER_TENANT: z.coerce.number().int().min(1).max(20).default(3),
   DATABASE_POOL_IDLE_MS: z.coerce.number().int().min(1_000).max(600_000).default(60_000),
+  GESTIONCHURCH_REDEEM_URL: z.string().url().optional(),
+  GESTIONCHURCH_AUTHORIZE_URL: z.string().url().optional(),
+  GESTIONCHURCH_ORGANIZATION_URL: z.string().url().optional(),
+  GESTIONCHURCH_INTEGRATION_SECRET: z.string().min(32).optional(),
 });
 
 export interface ApiConfig {
   readonly environment: "development" | "test" | "production";
   readonly host: string;
   readonly port: number;
+  readonly publicOrigin?: string;
   readonly corsOrigins: ReadonlySet<string>;
   /** Exact socket-peer IPs/CIDRs whose forwarding headers Fastify may honor. */
   readonly trustedProxyCidrs?: readonly string[];
@@ -49,6 +55,13 @@ export interface ApiConfig {
   readonly secretFile: string;
   readonly tenantPoolMax: number;
   readonly tenantPoolIdleMs: number;
+  readonly gestionChurchIntegration?: {
+    readonly enabled: boolean;
+    readonly redeemUrl?: string;
+    readonly authorizeUrl?: string;
+    readonly organizationUrl?: string;
+    readonly sharedSecret?: string;
+  };
 }
 
 export function parseApiConfig(source: NodeJS.ProcessEnv = process.env): ApiConfig {
@@ -68,9 +81,26 @@ export function parseApiConfig(source: NodeJS.ProcessEnv = process.env): ApiConf
   const controlDatabaseUrl = canonicalWorkspaceControlUrl(value.DATABASE_CONTROL_URL);
   if (!isLoopbackHost(value.API_HOST)) throw new Error("API_HOST must remain on a loopback interface");
   const corsOrigins = value.API_CORS_ORIGINS.split(",").map((item) => item.trim()).filter(Boolean);
+  const publicOrigin = value.API_PUBLIC_ORIGIN ?? `http://localhost:${value.API_PORT}`;
+  assertOrigin(publicOrigin);
   if (corsOrigins.length === 0) throw new Error("API_CORS_ORIGINS must contain at least one explicit origin");
   for (const origin of corsOrigins) assertOrigin(origin);
   const trustedProxyCidrs = parseTrustedProxyCidrs(value.API_TRUSTED_PROXY_CIDRS);
+  const integrationValues = [
+    value.GESTIONCHURCH_REDEEM_URL,
+    value.GESTIONCHURCH_AUTHORIZE_URL,
+    value.GESTIONCHURCH_ORGANIZATION_URL,
+    value.GESTIONCHURCH_INTEGRATION_SECRET,
+  ];
+  const integrationEnabled = integrationValues.some(Boolean);
+  if (integrationEnabled && integrationValues.some((item) => !item)) {
+    throw new Error("GestionChurch integration requires redeem, authorize, organization URLs, and shared secret together");
+  }
+  if (integrationEnabled) {
+    assertServerIntegrationUrl(value.GESTIONCHURCH_REDEEM_URL!, value.NODE_ENV);
+    assertServerIntegrationUrl(value.GESTIONCHURCH_AUTHORIZE_URL!, value.NODE_ENV);
+    assertServerIntegrationUrl(value.GESTIONCHURCH_ORGANIZATION_URL!, value.NODE_ENV);
+  }
   const webauthnOrigins = value.WEBAUTHN_EXPECTED_ORIGINS.split(",")
     .map((item) => item.trim())
     .filter(Boolean);
@@ -92,11 +122,15 @@ export function parseApiConfig(source: NodeJS.ProcessEnv = process.env): ApiConf
     if (trustedProxyCidrs.length === 0) {
       throw new Error("Production requires an explicit non-empty API_TRUSTED_PROXY_CIDRS allowlist");
     }
+    if (!value.API_PUBLIC_ORIGIN || new URL(publicOrigin).protocol !== "https:") {
+      throw new Error("Production requires an exact HTTPS API_PUBLIC_ORIGIN for device proofs");
+    }
   }
   return {
     environment: value.NODE_ENV,
     host: value.API_HOST,
     port: value.API_PORT,
+    publicOrigin,
     corsOrigins: new Set(corsOrigins),
     trustedProxyCidrs,
     secureCookies: value.API_COOKIE_SECURE,
@@ -114,7 +148,24 @@ export function parseApiConfig(source: NodeJS.ProcessEnv = process.env): ApiConf
     secretFile: value.DATABASE_SECRET_FILE ?? path.join(localRoot, "secrets.enc.json"),
     tenantPoolMax: value.DATABASE_POOL_MAX_PER_TENANT,
     tenantPoolIdleMs: value.DATABASE_POOL_IDLE_MS,
+    gestionChurchIntegration: integrationEnabled ? {
+      enabled: true,
+      redeemUrl: value.GESTIONCHURCH_REDEEM_URL!,
+      authorizeUrl: value.GESTIONCHURCH_AUTHORIZE_URL!,
+      organizationUrl: value.GESTIONCHURCH_ORGANIZATION_URL!,
+      sharedSecret: value.GESTIONCHURCH_INTEGRATION_SECRET!,
+    } : { enabled: false },
   };
+}
+
+function assertServerIntegrationUrl(value: string, environment: "development" | "test" | "production"): void {
+  const parsed = new URL(value);
+  if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password || parsed.hash) {
+    throw new Error("GestionChurch integration URLs must be HTTP(S) server endpoints without credentials or fragments");
+  }
+  if (environment === "production" && parsed.protocol !== "https:") {
+    throw new Error("Production GestionChurch integration URLs must use HTTPS");
+  }
 }
 
 function parseTrustedProxyCidrs(value: string | undefined): readonly string[] {

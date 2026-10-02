@@ -116,12 +116,12 @@ describe("sanitized local state verifier contract", () => {
   it("derives exact migration inventories from disk and fails a changed ledger checksum", async () => {
     const control = await loadMigrationPlanEntries(path.join(packageRoot, "migrations", "control"));
     const tenant = await loadMigrationPlanEntries(path.join(packageRoot, "migrations", "tenant"));
-    expect(control).toHaveLength(26);
-    expect(control.at(-1)?.name).toBe("026_invitation_enrollment_recovery_qualification.sql");
-    expect(tenant).toHaveLength(38);
-    expect(tenant.at(-1)?.name).toBe("036_transactional_invitation_grantor_lock.sql");
+    expect(control).toHaveLength(32);
+    expect(control.at(-1)?.name).toBe("032_gestionchurch_explicit_operational_roles.sql");
+    expect(tenant).toHaveLength(41);
+    expect(tenant.at(-1)?.name).toBe("039_device_bound_http_sessions.sql");
 
-    const green = evaluateMigrationLedger(tenant, tenant, 38, "036_transactional_invitation_grantor_lock.sql");
+    const green = evaluateMigrationLedger(tenant, tenant, 41, "039_device_bound_http_sessions.sql");
     expect(green).toMatchObject({
       pendingCount: 0,
       unexpectedCount: 0,
@@ -133,15 +133,15 @@ describe("sanitized local state verifier contract", () => {
     const drifted = tenant.map((entry, index) => index === 0
       ? { ...entry, checksum: "f".repeat(64) }
       : entry);
-    expect(evaluateMigrationLedger(tenant, drifted, 38, "036_transactional_invitation_grantor_lock.sql"))
+    expect(evaluateMigrationLedger(tenant, drifted, 41, "039_device_bound_http_sessions.sql"))
       .toMatchObject({ checksumMismatchCount: 1, mismatchCount: 1 });
 
     const unexpectedName = "999_runtime_password.sql";
     const unexpected = evaluateMigrationLedger(
       tenant,
       [...tenant, { name: unexpectedName, checksum: "e".repeat(64) }],
-      38,
-      "036_transactional_invitation_grantor_lock.sql",
+      41,
+      "039_device_bound_http_sessions.sql",
     );
     expect(unexpected).toMatchObject({ unexpectedCount: 1, head: null });
     expect(JSON.stringify(unexpected)).not.toContain(unexpectedName);
@@ -265,12 +265,12 @@ describe("sanitized local state verifier contract", () => {
     }
   });
 
-  it("enforces explicit Demo fixture states and the empty 47-table Ozama contract", () => {
+  it("enforces explicit Demo fixture states and the empty 50-table pre-activation contract", () => {
     expect(evaluateDemoFixtureCounts(180, 150, "after")).toBe(0);
     expect(evaluateDemoFixtureCounts(181, 151, "before")).toBe(0);
     expect(evaluateDemoFixtureCounts(181, 151, "after")).toBe(2);
-    expect(evaluateOzamaOperationalState(47, 0)).toBe(0);
-    expect(evaluateOzamaOperationalState(46, 1)).toBe(2);
+    expect(evaluateOzamaOperationalState(50, 0)).toBe(0);
+    expect(evaluateOzamaOperationalState(49, 1)).toBe(2);
   });
 
   it("treats only terminal provisioning and export states as a quiescent worker backlog", () => {

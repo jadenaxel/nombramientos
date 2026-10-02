@@ -4,9 +4,9 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { classifyAppointmentWorkflow, isConfigurableVacancyProcessMechanism } from "@nombramientos/catalog";
 import {
-  ArchiveRestore, ArrowRight, CalendarClock, Check, CheckCircle2, ClipboardCheck,
-  Copy, FileLock2, Gavel, History, LoaderCircle, Plus, RefreshCw, ShieldAlert, ShieldCheck,
-  Sparkles, UserCheck, Users, Vote,
+  ArchiveRestore, ArrowRight, CalendarClock, CalendarRange, Check, CheckCircle2, ClipboardCheck,
+  Copy, FileLock2, Gavel, History, Layers3, LoaderCircle, Plus, RefreshCw, Rocket, ShieldAlert, ShieldCheck,
+  Sparkles, UserCheck, Users, UsersRound, Vote,
 } from "lucide-react";
 
 import { useVault } from "@/app/providers";
@@ -18,10 +18,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { WorkflowSessionConsole } from "@/components/nombramientos/workflow-session-console";
+import { WorkflowGuidance } from "@/components/nombramientos/workflow-guidance";
 import { api, ApiError, type AuthenticatedSession, type Envelope, type Locale } from "@/lib/api";
 import { encryptJson } from "@/lib/crypto-client";
 import { keyForEnvelope, openJsonEnvelope } from "@/lib/historical-envelope";
@@ -30,6 +34,9 @@ import { message, assignmentLabel, localizedApiError, localizedName, phaseLabel,
 import { isLegacyTitleUnavailable, openSessionTitle, sealSessionTitle } from "@/lib/session-title-crypto";
 import { currentYearInTimeZone, formatCalendarDate, formatInTenantTimeZone } from "@/lib/tenant-time";
 import { localDateTimeInZoneToIso } from "@/lib/workflow-time";
+import { candidacyCanBeSelected, loadWorkflowMemberDirectory, selectedReviewCandidacyIds } from "@/lib/workflow-directory";
+import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
+import { confirmUnsavedNavigation } from "@/lib/unsaved-changes";
 import {
   buildProposalAggregate,
   verifyProposalManifest,
@@ -175,6 +182,8 @@ export function WorkflowConsole({ locale, session }: { locale: Locale; session: 
   const [selectedProcessId, setSelectedProcessId] = useState("");
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
   const [busy, setBusy] = useState<string>();
+  const [quickStartOpen, setQuickStartOpen] = useState(false);
+  const actionInFlightRef = useRef(false);
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string }>();
   const [sessionTitles, setSessionTitles] = useState<Map<string, string>>(new Map());
   const [sessionTitleError, setSessionTitleError] = useState<string>();
@@ -191,7 +200,7 @@ export function WorkflowConsole({ locale, session }: { locale: Locale; session: 
     refetchInterval: 15_000,
   });
   const catalogQuery = useQuery({ queryKey: ["catalog"], queryFn: api.catalog, enabled: canManageCycle });
-  const membersQuery = useQuery({ queryKey: ["members", session.tenant.id, "workflow"], queryFn: () => api.members(), enabled: canManageCycle && canReadMembers });
+  const membersQuery = useQuery({ queryKey: ["members", session.tenant.id, "workflow"], queryFn: () => loadWorkflowMemberDirectory(api.members), enabled: canManageCycle && canReadMembers });
   const committeeCandidatesQuery = useQuery({
     queryKey: ["workflow-committee-candidates", session.tenant.id, resolvedCycleId],
     queryFn: () => workflowApi.committeeCandidates(resolvedCycleId),
@@ -290,6 +299,8 @@ export function WorkflowConsole({ locale, session }: { locale: Locale; session: 
     action: () => Promise<unknown>,
     success = message(locale, "screen.workflowConsole.5e9cb6770690"),
   ) {
+    if (actionInFlightRef.current) return;
+    actionInFlightRef.current = true;
     setBusy(label); setNotice(undefined);
     try {
       await action();
@@ -300,7 +311,7 @@ export function WorkflowConsole({ locale, session }: { locale: Locale; session: 
         tone: "error",
         text: label.startsWith("applicability:") ? applicabilityError(error, locale) : localizedApiError(error, locale),
       });
-    } finally { setBusy(undefined); }
+    } finally { actionInFlightRef.current = false; setBusy(undefined); }
   }
 
   const readiness = visibleWorkflow ? readinessPercent(visibleWorkflow) : 0;
@@ -311,22 +322,47 @@ export function WorkflowConsole({ locale, session }: { locale: Locale; session: 
       <div className="flex flex-wrap items-center gap-2"><Badge variant="outline"><ShieldCheck /> {message(locale, "screen.workflowConsole.fc9848803aa5")}</Badge><Badge variant="outline"><FileLock2 /> E2EE</Badge></div>
     </header>
 
-    {notice && <Alert role="status" variant={notice.tone === "error" ? "destructive" : "default"}><CheckCircle2 /><AlertTitle>{notice.tone === "success" ? message(locale, "screen.workflowConsole.c837ac582582") : message(locale, "screen.workflowConsole.0b187cb976ee")}</AlertTitle><AlertDescription>{notice.text}</AlertDescription></Alert>}
+    {notice && <Alert role={notice.tone === "error" ? "alert" : "status"} variant={notice.tone === "error" ? "destructive" : "default"}><CheckCircle2 /><AlertTitle>{notice.tone === "success" ? message(locale, "screen.workflowConsole.c837ac582582") : message(locale, "screen.workflowConsole.0b187cb976ee")}</AlertTitle><AlertDescription>{notice.text}</AlertDescription></Alert>}
     {sessionTitleError && <Alert variant="destructive"><ShieldAlert /><AlertTitle>{message(locale, "screen.workflowConsole.bb40c9288c58")}</AlertTitle><AlertDescription>{sessionTitleError}</AlertDescription></Alert>}
+
+    <WorkflowGuidance session={session} locale={locale} workflow={cyclesQuery.isError || workflowQuery.isError ? undefined : cyclesQuery.isSuccess && !resolvedCycleId ? null : workflow}
+      memberTotal={membersQuery.isError ? undefined : membersQuery.data?.total} onStart={() => { if (confirmUnsavedNavigation()) setQuickStartOpen(true); }} onStep={(next) => { if (confirmUnsavedNavigation()) setStep(next); }}
+      retry={() => { void cyclesQuery.refetch(); void workflowQuery.refetch(); if (canReadMembers) void membersQuery.refetch(); }} />
+
+    <QuickStartPanel
+      locale={locale}
+      session={session}
+      cycles={cyclesQuery.data?.items ?? []}
+      memberTotal={membersQuery.data?.total}
+      departmentTotal={catalogQuery.data?.departments.length}
+      officeTotal={catalogQuery.data?.offices.length}
+      normativeVersion={catalogQuery.data?.normativeVersion}
+      loading={cyclesQuery.isLoading || (canReadMembers && membersQuery.isLoading) || catalogQuery.isLoading}
+      dataError={cyclesQuery.isError ? localizedApiError(cyclesQuery.error, locale) : catalogQuery.isError ? localizedApiError(catalogQuery.error, locale) : membersQuery.isError ? localizedApiError(membersQuery.error, locale) : undefined}
+      retryData={() => Promise.all([cyclesQuery.refetch(), catalogQuery.refetch(), ...(canReadMembers ? [membersQuery.refetch()] : [])])}
+      busy={busy}
+      open={quickStartOpen}
+      onOpenChange={setQuickStartOpen}
+      act={act}
+      onCreated={(id) => { setSelectedCycleId(id); setStep("configuration"); }}
+    />
 
     <nav className="grid grid-cols-2 gap-2 rounded-2xl border bg-white p-2 shadow-sm md:grid-cols-4" aria-label={message(locale, "screen.workflowConsole.cdf724a755fc")}>
       {([
         ["cycle", message(locale, "screen.workflowConsole.f24d3df7f132"), CalendarClock], ["configuration", message(locale, "screen.workflowConsole.24b81fc9fb00"), Users],
         ["process", message(locale, "screen.workflowConsole.b59d840d24d8"), Vote], ["assignments", message(locale, "screen.workflowConsole.cb9ceade830a"), Gavel],
-      ] as const).map(([id, label, Icon]) => <button key={id} type="button" onClick={() => setStep(id)} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold transition ${step === id ? "bg-slate-950 text-white shadow-lg" : "text-slate-600 hover:bg-slate-100"}`}><Icon size={17} />{label}</button>)}
+      ] as const).map(([id, label, Icon]) => <button key={id} type="button" onClick={() => { if (id === step || confirmUnsavedNavigation()) setStep(id); }} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold transition ${step === id ? "bg-slate-950 text-white shadow-lg" : "text-slate-600 hover:bg-slate-100"}`}><Icon size={17} />{label}</button>)}
     </nav>
 
-    {cyclesQuery.isLoading ? <Loading label={message(locale, "screen.workflowConsole.2c8ff076d67c")} /> : step === "cycle" ? <CyclePanel
+    {cyclesQuery.isError ? <QueryFailure locale={locale} error={cyclesQuery.error} retry={() => cyclesQuery.refetch()} /> : cyclesQuery.isLoading ? <Loading label={message(locale, "screen.workflowConsole.2c8ff076d67c")} /> : step === "cycle" ? <CyclePanel
       locale={locale} cycles={cyclesQuery.data?.items ?? []} selectedCycleId={resolvedCycleId} setSelectedCycleId={setSelectedCycleId}
       tenantTimeZone={session.tenant.timezone}
       busy={busy} act={act} onCreated={(id) => { setSelectedCycleId(id); setStep("configuration"); }}
-    /> : !resolvedCycleId ? <Empty title={message(locale, "screen.workflowConsole.ac62c00c4145")} /> : workflowQuery.isLoading ? <Loading label={message(locale, "screen.workflowConsole.1d49b3c4a6f8")} /> : !visibleWorkflow ? <Empty title={message(locale, "screen.workflowConsole.1d1fde09cb84")} /> : <>
+    /> : !resolvedCycleId ? <Empty title={message(locale, "screen.workflowConsole.ac62c00c4145")} /> : workflowQuery.isError ? <QueryFailure locale={locale} error={workflowQuery.error} retry={() => workflowQuery.refetch()} /> : workflowQuery.isLoading ? <Loading label={message(locale, "screen.workflowConsole.1d49b3c4a6f8")} /> : !visibleWorkflow ? <Empty title={message(locale, "screen.workflowConsole.1d1fde09cb84")} /> : <>
       <CycleRibbon workflow={visibleWorkflow} readiness={readiness} locale={locale} busy={busy} act={act} />
+      {step === "configuration" && catalogQuery.isError && <QueryFailure locale={locale} error={catalogQuery.error} retry={() => catalogQuery.refetch()} />}
+      {step === "configuration" && membersQuery.isError && <QueryFailure locale={locale} error={membersQuery.error} retry={() => membersQuery.refetch()} />}
+      {step === "configuration" && committeeCandidatesQuery.isError && <QueryFailure locale={locale} error={committeeCandidatesQuery.error} retry={() => committeeCandidatesQuery.refetch()} />}
       {step === "configuration" && <ConfigurationPanel
         key={visibleWorkflow.cycle.id} workflow={visibleWorkflow} locale={locale} session={session} vault={vault} offices={(catalogQuery.data?.offices ?? []) as Array<Record<string, unknown>>}
         members={membersQuery.data?.items ?? []} committeeCandidates={committeeCandidatesQuery.data?.items ?? []} busy={busy} act={act}
@@ -343,6 +379,153 @@ export function WorkflowConsole({ locale, session }: { locale: Locale; session: 
   </div>;
 }
 
+type QuickStartStep = 1 | 2 | 3;
+
+function QuickStartPanel({
+  locale, session, cycles, memberTotal, departmentTotal, officeTotal, normativeVersion,
+  loading, dataError, retryData, busy, act, onCreated, open, onOpenChange,
+}: {
+  locale: Locale;
+  session: AuthenticatedSession;
+  cycles: Awaited<ReturnType<typeof workflowApi.cycles>>["items"];
+  memberTotal?: number;
+  departmentTotal?: number;
+  officeTotal?: number;
+  normativeVersion?: string;
+  loading: boolean;
+  dataError?: string;
+  retryData: () => Promise<unknown>;
+  busy?: string;
+  act: (label: string, action: () => Promise<unknown>, success?: string) => Promise<void>;
+  onCreated: (id: string) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const year = currentYearInTimeZone(session.tenant.timezone);
+  const defaultName = message(locale, "workflow.quickStart.defaultName", { start: year, end: year + 1 });
+  const startButtonRef = useRef<HTMLButtonElement>(null);
+  const [wizardStep, setWizardStep] = useState<QuickStartStep>(1);
+  const [startError, setStartError] = useState<string>();
+  const [form, setForm] = useState({
+    name: defaultName,
+    termStart: `${year}-01-01`,
+    termEnd: `${year + 1}-12-31`,
+  });
+  const submitting = busy === "quick-start-cycle";
+  const [savedForm, setSavedForm] = useState(() => JSON.stringify(form));
+  const confirmLeave = useUnsavedChanges(JSON.stringify(form) !== savedForm, locale);
+  const datesValid = Boolean(form.termStart && form.termEnd && form.termEnd >= form.termStart);
+  const canContinue = form.name.trim().length >= 2 && datesValid && !dataError;
+
+  function setDialogOpen(nextOpen: boolean) {
+    if (submitting) return;
+    if (!nextOpen && !confirmLeave()) return;
+    onOpenChange(nextOpen);
+    if (nextOpen) { setWizardStep(1); setStartError(undefined); }
+  }
+
+  async function startProcess() {
+    setStartError(undefined);
+    let createdId = "";
+    await act("quick-start-cycle", async () => {
+      try {
+        const created = await workflowApi.createCycle({
+          name: form.name.trim(),
+          locale,
+          timezone: session.tenant.timezone,
+          jurisdiction: message(locale, "screen.workflowConsole.a00dfa072b83"),
+          termStart: form.termStart,
+          termEnd: form.termEnd,
+          normativeVersion: normativeVersion ?? "catalog-v1",
+          configuration: {
+            parallelRooms: false,
+            initiationMode: "guided_quick_start",
+            rosterSource: "tenant_directory",
+          },
+        });
+        createdId = created.id;
+      } catch (error) {
+        setStartError(localizedApiError(error, locale));
+        throw error;
+      }
+    }, message(locale, "workflow.quickStart.success"));
+    if (!createdId) return;
+    setSavedForm(JSON.stringify(form));
+    onOpenChange(false);
+    onCreated(createdId);
+  }
+
+  const stepLabels = [
+    message(locale, "workflow.quickStart.stepPeriod"),
+    message(locale, "workflow.quickStart.stepData"),
+    message(locale, "workflow.quickStart.stepConfirm"),
+  ];
+  return <section className="overflow-hidden rounded-[2rem] border border-cyan-200/80 bg-[radial-gradient(circle_at_85%_0%,rgba(34,211,238,.22),transparent_30%),linear-gradient(135deg,#062f36,#075d5a_58%,#0f766e)] text-white shadow-[0_24px_70px_-38px_rgba(6,95,90,.85)]">
+    <div className="grid gap-6 p-6 md:grid-cols-[1fr_auto] md:items-center md:p-7">
+      <div className="flex flex-col items-start gap-4 sm:flex-row">
+        <span className="grid size-14 shrink-0 place-items-center rounded-2xl border border-white/20 bg-white/10 shadow-inner"><Rocket size={25} /></span>
+        <div><p className="text-xs font-bold tracking-[.16em] text-cyan-100">{message(locale, "workflow.quickStart.eyebrow")}</p><h2 className="mt-1 text-2xl font-bold tracking-tight">{message(locale, "workflow.quickStart.title")}</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-cyan-50/90">{message(locale, "workflow.quickStart.description")}</p></div>
+      </div>
+      <Button ref={startButtonRef} type="button" size="lg" className="min-w-56 bg-white text-teal-950 shadow-xl hover:bg-cyan-50" onClick={() => setDialogOpen(true)} disabled={loading || Boolean(busy)}><Rocket />{cycles.length ? message(locale, "workflow.quickStart.newPeriod") : message(locale, "workflow.quickStart.start")}</Button>
+    </div>
+    <div className="grid border-t border-white/15 bg-black/10 sm:grid-cols-3">
+      <QuickStartAssurance icon={UsersRound} title={message(locale, "workflow.quickStart.peopleLinked")} detail={memberTotal === undefined ? message(locale, "workflow.quickStart.roleProtected") : message(locale, "workflow.quickStart.peopleCount", { count: memberTotal })} />
+      <QuickStartAssurance icon={Layers3} title={message(locale, "workflow.quickStart.structureLinked")} detail={departmentTotal === undefined || officeTotal === undefined ? message(locale, "workflow.quickStart.loadingData") : message(locale, "workflow.quickStart.structureCount", { departments: departmentTotal, offices: officeTotal })} />
+      <QuickStartAssurance icon={ShieldCheck} title={message(locale, "workflow.quickStart.accessByRole")} detail={message(locale, "workflow.quickStart.accessByRoleDetail")} />
+    </div>
+
+    <Dialog open={open} onOpenChange={setDialogOpen}>
+      <DialogContent className="p-0 sm:max-w-3xl" closeLabel={message(locale, "common.close")} onCloseAutoFocus={(event) => { event.preventDefault(); startButtonRef.current?.focus(); }}>
+        <div className="border-b bg-[linear-gradient(135deg,#ecfeff,#f8fafc)] px-6 py-5 pr-12">
+          <DialogHeader><p className="eyebrow">{message(locale, "workflow.quickStart.eyebrow")}</p><DialogTitle className="text-2xl">{message(locale, "workflow.quickStart.dialogTitle")}</DialogTitle><DialogDescription>{message(locale, "workflow.quickStart.dialogDescription")}</DialogDescription></DialogHeader>
+          <ol className="mt-5 grid grid-cols-3 gap-2" aria-label={message(locale, "workflow.quickStart.progressLabel")}>
+            {stepLabels.map((label, index) => { const number = (index + 1) as QuickStartStep; const active = number === wizardStep; const complete = number < wizardStep; return <li key={label} className={`rounded-xl border px-3 py-2 text-xs font-semibold ${active ? "border-teal-600 bg-teal-700 text-white" : complete ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-700"}`} aria-current={active ? "step" : undefined}><span className="mr-2 inline-grid size-5 place-items-center rounded-full border border-current">{complete ? <Check size={13} /> : number}</span>{label}</li>; })}
+          </ol>
+        </div>
+
+        <div className="px-6 py-2">
+          {(startError || dataError) && <Alert role="alert" variant="destructive" className="my-4"><ShieldAlert /><AlertTitle>{message(locale, startError ? "screen.workflowConsole.0b187cb976ee" : "workflow.loadFailed")}</AlertTitle><AlertDescription>{startError || dataError}{dataError && <Button type="button" variant="outline" size="sm" className="mt-3" disabled={loading} onClick={() => void retryData()}><RefreshCw />{message(locale, "common.retry")}</Button>}</AlertDescription></Alert>}
+          {wizardStep === 1 && <div className="space-y-5 py-4">
+            <div><h3 className="text-lg font-semibold">{message(locale, "workflow.quickStart.periodTitle")}</h3><p className="text-sm text-muted-foreground">{message(locale, "workflow.quickStart.periodHelp")}</p></div>
+            <Field label={message(locale, "screen.workflowConsole.15fa7f36eaa5")}><Input autoFocus value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} minLength={2} maxLength={160} required /></Field>
+            <div className="grid gap-4 sm:grid-cols-2"><Field label={message(locale, "screen.workflowConsole.c91ca116b24c")}><Input type="date" value={form.termStart} onChange={(event) => setForm({ ...form, termStart: event.target.value })} required /></Field><Field label={message(locale, "screen.workflowConsole.36f88fc440e3")}><Input type="date" value={form.termEnd} min={form.termStart} onChange={(event) => setForm({ ...form, termEnd: event.target.value })} required /></Field></div>
+            {!datesValid && <p role="alert" className="text-sm font-medium text-destructive">{message(locale, "workflow.quickStart.invalidDates")}</p>}
+          </div>}
+
+          {wizardStep === 2 && <div className="space-y-5 py-4">
+            <div><h3 className="text-lg font-semibold">{message(locale, "workflow.quickStart.dataTitle")}</h3><p className="text-sm text-muted-foreground">{message(locale, "workflow.quickStart.dataHelp", { church: session.tenant.name })}</p></div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <QuickStartMetric icon={UsersRound} value={memberTotal} label={message(locale, "workflow.quickStart.people")} />
+              <QuickStartMetric icon={Layers3} value={departmentTotal} label={message(locale, "workflow.quickStart.departments")} />
+              <QuickStartMetric icon={ClipboardCheck} value={officeTotal} label={message(locale, "workflow.quickStart.positions")} />
+            </div>
+            <Alert><ShieldCheck /><AlertTitle>{message(locale, "workflow.quickStart.noDuplicateTitle")}</AlertTitle><AlertDescription>{message(locale, "workflow.quickStart.noDuplicateHelp")}</AlertDescription></Alert>
+          </div>}
+
+          {wizardStep === 3 && <div className="space-y-5 py-4">
+            <div><h3 className="text-lg font-semibold">{message(locale, "workflow.quickStart.confirmTitle")}</h3><p className="text-sm text-muted-foreground">{message(locale, "workflow.quickStart.confirmHelp")}</p></div>
+            <div className="rounded-2xl border bg-slate-50 p-5"><div className="flex items-start gap-3"><span className="form-icon"><CalendarRange /></span><div><strong className="text-lg text-slate-950">{form.name}</strong><p className="mt-1 text-sm text-slate-600">{formatCalendarDate(form.termStart, locale)} → {formatCalendarDate(form.termEnd, locale)}</p><p className="mt-1 text-sm text-slate-600">{session.tenant.name} · {session.tenant.timezone}</p></div></div></div>
+            <div className="grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4"><strong className="flex items-center gap-2 text-emerald-950"><CheckCircle2 size={18} />{message(locale, "workflow.quickStart.permissionsReady")}</strong><p className="mt-1 text-sm text-emerald-900/80">{message(locale, "workflow.quickStart.permissionsReadyHelp")}</p></div><div className="rounded-xl border border-cyan-200 bg-cyan-50 p-4"><strong className="flex items-center gap-2 text-cyan-950"><ShieldCheck size={18} />{message(locale, "workflow.quickStart.auditReady")}</strong><p className="mt-1 text-sm text-cyan-900/80">{message(locale, "workflow.quickStart.auditReadyHelp")}</p></div></div>
+          </div>}
+        </div>
+
+        <DialogFooter className="border-t bg-slate-50 px-6 py-4">
+          <Button type="button" variant="outline" disabled={submitting} onClick={() => wizardStep === 1 ? setDialogOpen(false) : setWizardStep((wizardStep - 1) as QuickStartStep)}>{wizardStep === 1 ? message(locale, "common.cancel") : message(locale, "common.back")}</Button>
+          {wizardStep < 3 ? <Button type="button" disabled={!canContinue} onClick={() => setWizardStep((wizardStep + 1) as QuickStartStep)}>{message(locale, "common.continue")}<ArrowRight /></Button> : <Button type="button" disabled={submitting || !canContinue} onClick={() => void startProcess()}>{submitting ? <LoaderCircle className="animate-spin" /> : <Rocket />}{submitting ? message(locale, "workflow.quickStart.starting") : message(locale, "workflow.quickStart.confirmAction")}</Button>}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </section>;
+}
+
+function QuickStartAssurance({ icon: Icon, title, detail }: { icon: typeof UsersRound; title: string; detail: string }) {
+  return <div className="flex items-center gap-3 border-white/15 px-5 py-4 sm:border-r sm:last:border-r-0"><Icon className="shrink-0 text-cyan-100" size={20} /><span><strong className="block text-sm">{title}</strong><small className="text-cyan-50/75">{detail}</small></span></div>;
+}
+
+function QuickStartMetric({ icon: Icon, value, label }: { icon: typeof UsersRound; value?: number; label: string }) {
+  return <div className="rounded-2xl border bg-white p-4 shadow-sm"><Icon className="text-teal-700" size={21} /><strong className="mt-4 block text-3xl text-slate-950">{value ?? "—"}</strong><span className="text-sm text-slate-500">{label}</span></div>;
+}
+
 function CyclePanel({ locale, cycles, selectedCycleId, setSelectedCycleId, tenantTimeZone, busy, act, onCreated }: {
   locale: Locale; cycles: Awaited<ReturnType<typeof workflowApi.cycles>>["items"]; selectedCycleId: string;
   setSelectedCycleId: (id: string) => void; tenantTimeZone: string; busy?: string;
@@ -356,11 +539,14 @@ function CyclePanel({ locale, cycles, selectedCycleId, setSelectedCycleId, tenan
       termStart: `${year}-01-01`, termEnd: `${year + 1}-12-31`, normativeVersion: "catalog-v1",
     };
   });
+  const [savedForm, setSavedForm] = useState(() => JSON.stringify(form));
+  useUnsavedChanges(JSON.stringify(form) !== savedForm, locale);
   async function submit(event: FormEvent) {
     event.preventDefault();
     await act("cycle-save", async () => {
       const body = { ...form, configuration: { parallelRooms: false } };
       const created = cloneSource ? await workflowApi.cloneCycle(cloneSource, body) : await workflowApi.createCycle(body);
+      setSavedForm(JSON.stringify(form));
       onCreated(created.id);
     }, cloneSource
       ? message(locale, "screen.workflowConsole.f51746ba9cd3")
@@ -594,8 +780,7 @@ function ProcessPanel({ workflow, process, selectedProcessId, setSelectedProcess
   const [linkedDesignationAcknowledged, setLinkedDesignationAcknowledged] = useState(false);
   const [linkedDesignationSessionId, setLinkedDesignationSessionId] = useState(workflow.sessions[0]?.id ?? "");
   const [workloadNotice, setWorkloadNotice] = useState<{ processId: string; count: number; independentWarningCount: number; highestNominalLoad: number; highestIndependentLoad: number }>();
-  const selectedCandidacies = (reviewQuery.data?.candidates ?? []).filter((candidate) => selectionOverrides[candidate.id]
-    ?? ["UNDER_REVIEW","PRELIMINARY_ACCEPTED","CONFIRMED_FOR_BALLOT"].includes(candidate.state)).map((candidate) => candidate.id);
+  const selectedCandidacies = selectedReviewCandidacyIds(reviewQuery.data?.candidates ?? [], selectionOverrides);
   const activeEligibilityPauses = (workflow.eligibilityPauses ?? []).filter((pause) => pause.processId === process?.id && !pause.resolvedAt);
   const linkedBaseOfficeCode = typeof process?.catalog_metadata?.linkedBaseOfficeCode === "string"
     ? process.catalog_metadata.linkedBaseOfficeCode
@@ -793,9 +978,10 @@ function ProcessPanel({ workflow, process, selectedProcessId, setSelectedProcess
       </StageCard>
     </section>}
 
-    {isOrdinaryWorkflow && reviewQuery.data && <section className="surface-card"><div className="card-heading"><div><p className="eyebrow">{message(locale, "screen.workflowConsole.61bd5c764a64")}</p><h2>{message(locale, "screen.workflowConsole.3f859533f860")}</h2>{reviewQuery.data.process.participation && <p className="text-sm text-slate-500">{message(locale, "screen.workflowConsole.c614ea57e3e5")} {reviewQuery.data.process.participation.completedResponses}/{reviewQuery.data.process.participation.electorateDenominator} · {message(locale, "screen.workflowConsole.fa68c7ec33f6")} {reviewQuery.data.process.participation.effectiveResponseDenominator === 0 ? message(locale, "screen.workflowConsole.14a82ef6df2a") : reviewQuery.data.process.participation.effectiveResponseDenominator}</p>}</div><Badge variant="outline">{reviewQuery.data.candidates.length}</Badge></div>
+    {isOrdinaryWorkflow && reviewQuery.isError && <QueryFailure locale={locale} error={reviewQuery.error} retry={() => reviewQuery.refetch()} />}
+    {isOrdinaryWorkflow && !reviewQuery.isError && reviewQuery.data && <section className="surface-card"><div className="card-heading"><div><p className="eyebrow">{message(locale, "screen.workflowConsole.61bd5c764a64")}</p><h2>{message(locale, "screen.workflowConsole.3f859533f860")}</h2>{reviewQuery.data.process.participation && <p className="text-sm text-slate-500">{message(locale, "screen.workflowConsole.c614ea57e3e5")} {reviewQuery.data.process.participation.completedResponses}/{reviewQuery.data.process.participation.electorateDenominator} · {message(locale, "screen.workflowConsole.fa68c7ec33f6")} {reviewQuery.data.process.participation.effectiveResponseDenominator === 0 ? message(locale, "screen.workflowConsole.14a82ef6df2a") : reviewQuery.data.process.participation.effectiveResponseDenominator}</p>}</div><Badge variant="outline">{reviewQuery.data.candidates.length}</Badge></div>
       <div className="space-y-3">{reviewQuery.data.candidates.map((candidate) => <article key={candidate.id} className="grid items-center gap-3 rounded-2xl border p-4 md:grid-cols-[auto_1fr_auto_auto]">
-        <Checkbox checked={selectedCandidacies.includes(candidate.id)} disabled={["WITHDRAWN","EXCLUDED","INELIGIBLE"].includes(candidate.state)} onCheckedChange={(checked) => setSelectionOverrides((items) => ({ ...items, [candidate.id]: checked === true }))} />
+        <Checkbox checked={selectedCandidacies.includes(candidate.id)} disabled={!candidacyCanBeSelected(candidate.state)} onCheckedChange={(checked) => setSelectionOverrides((items) => ({ ...items, [candidate.id]: checked === true }))} />
         <div><EncryptedIdentity locale={locale} tenantId={session.tenant.id} memberId={candidate.memberId} displayEnvelope={candidate.displayEnvelope} photo={candidate.photoSnapshot} vault={vault} /><small className="mt-1 block text-slate-500">{candidate.distinctProponentCount} {message(locale, "screen.workflowConsole.2fd307b171ad")} {candidate.supportDenominator} {message(locale, "screen.workflowConsole.6cf4e4e2de6f")} · {candidate.supportPercent === null ? message(locale, "screen.workflowConsole.14a82ef6df2a") : `${candidate.supportPercent}%`} · {message(locale, "screen.workflowConsole.f7eb61539b8c")} {reviewQuery.data.process.participation?.completedResponses ?? candidate.electorateDenominator}/{candidate.electorateDenominator}</small></div><Badge variant="outline">{candidacyLabel(locale, candidate.state)}</Badge>
         <ReviewActions key={`${candidate.id}:${candidate.state}`} locale={locale} candidate={candidate} processId={process.id} tenantId={session.tenant.id} vault={vault} busy={busy} act={act} />
       </article>)}</div>
@@ -908,7 +1094,7 @@ function ReviewActions({ locale, candidate, processId, tenantId, vault, busy, ac
     <select aria-label={message(locale, "screen.workflowConsole.71a461bc73b4")} className="h-9 rounded-md border bg-white px-2 text-xs" value={toState} onChange={(event) => {
       setToState(event.target.value);
     }}>{options.map((option) => <option key={option.state} value={option.state}>{option.label}</option>)}</select>
-    <code className="flex h-9 items-center rounded-md border bg-slate-50 px-2 text-[11px]">{options.find((option) => option.state === toState)?.reasonCode ?? "—"}</code>
+    <code className="flex h-9 items-center rounded-md border bg-slate-50 px-2 text-[13px]">{options.find((option) => option.state === toState)?.reasonCode ?? "—"}</code>
     <textarea aria-label={message(locale, "screen.workflowConsole.cb0c275a55a3")} className="min-h-16 rounded-md border bg-white px-3 py-2 text-xs" placeholder={message(locale, "screen.workflowConsole.cb0c275a55a3")} value={rationale} onChange={(event) => setRationale(event.target.value)} maxLength={2_000} />
     <textarea aria-label={message(locale, "screen.workflowConsole.6125079be680")} className="min-h-12 rounded-md border bg-white px-3 py-2 text-xs" placeholder={message(locale, "screen.workflowConsole.6d6224573cb8")} value={restrictedNote} onChange={(event) => setRestrictedNote(event.target.value)} maxLength={2_000} />
     <Button size="sm" variant="outline" disabled={Boolean(busy) || !vault.key} onClick={() => void act(`review-${candidate.id}`, review, message(locale, "screen.workflowConsole.3f7b6c93958e"))}>{busy === `review-${candidate.id}` ? <LoaderCircle className="animate-spin" /> : <ClipboardCheck />} {message(locale, "screen.workflowConsole.571bf4ba0e8a")}</Button>
@@ -962,14 +1148,14 @@ function EncryptedIdentity({ locale, tenantId, memberId, displayEnvelope, photo,
     || (unavailableEnvelope?.memberId === memberId && unavailableEnvelope.envelopeCiphertext === displayEnvelope.ciphertext)));
   const fallback = name ? name.split(/\s+/u).slice(0, 2).map((part) => part[0]).join("").toUpperCase() : "••";
   return <span className={`flex items-center gap-2 ${compact ? "mt-1" : ""}`}>
-    <span className={`${compact ? "size-7 text-[10px]" : "size-11 text-xs"} grid shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-cyan-500 to-blue-700 font-bold text-white`}>
+    <span className={`${compact ? "size-7 text-[13px]" : "size-11 text-xs"} grid shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-cyan-500 to-blue-700 font-bold text-white`}>
       {photoUrl ? <>
         {/* This authenticated blob URL is memory-only and revoked on change/unmount. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img className="size-full object-cover" src={photoUrl} alt="" />
       </> : fallback}
     </span>
-    <span className="min-w-0"><strong className={`${compact ? "text-xs" : "text-sm"} block truncate`}>{name || (vault.key ? unavailable ? message(locale, "screen.workflowConsole.d5de935642ed") : message(locale, "screen.workflowConsole.4f7e59550317") : message(locale, "screen.workflowConsole.b10c6b732145"))}</strong><small className="block truncate text-[10px] text-slate-500">{memberId}</small></span>
+    <span className="min-w-0"><strong className={`${compact ? "text-xs" : "text-sm"} block truncate`}>{name || (vault.key ? unavailable ? message(locale, "screen.workflowConsole.d5de935642ed") : message(locale, "screen.workflowConsole.4f7e59550317") : message(locale, "screen.workflowConsole.b10c6b732145"))}</strong><small className="block truncate text-[13px] text-slate-500">{memberId}</small></span>
   </span>;
 }
 
@@ -1004,7 +1190,7 @@ function transitionActionLabel(locale: Locale, action: string): string {
 
 function PhaseRail({ locale, phase }: { locale: Locale; phase: string }) {
   const index = Math.max(0, phaseOrder.indexOf(phase));
-  return <div className="flex min-w-0 items-center gap-1 overflow-x-auto py-2" aria-label={`${message(locale, "screen.workflowConsole.955ea3baa08d")}: ${phaseLabel(locale, phase)}`}>{phaseOrder.map((item, itemIndex) => <div key={item} className="flex min-w-20 items-center gap-1" title={phaseLabel(locale, item)}><span className={`grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${itemIndex <= index ? "bg-cyan-600 text-white" : "bg-slate-100 text-slate-400"}`}>{itemIndex < index ? <Check size={12} /> : itemIndex + 1}</span>{itemIndex < phaseOrder.length - 1 && <span className={`h-px w-full ${itemIndex < index ? "bg-cyan-500" : "bg-slate-200"}`} />}</div>)}</div>;
+  return <div className="flex min-w-0 items-center gap-1 overflow-x-auto py-2" aria-label={`${message(locale, "screen.workflowConsole.955ea3baa08d")}: ${phaseLabel(locale, phase)}`}>{phaseOrder.map((item, itemIndex) => <div key={item} className="flex min-w-20 items-center gap-1" title={phaseLabel(locale, item)}><span className={`grid size-6 shrink-0 place-items-center rounded-full text-[13px] font-bold ${itemIndex <= index ? "bg-cyan-600 text-white" : "bg-slate-100 text-slate-400"}`}>{itemIndex < index ? <Check size={12} /> : itemIndex + 1}</span>{itemIndex < phaseOrder.length - 1 && <span className={`h-px w-full ${itemIndex < index ? "bg-cyan-500" : "bg-slate-200"}`} />}</div>)}</div>;
 }
 
 function StageCard({ locale, icon: Icon, title, phase, children }: { locale: Locale; icon: typeof Users; title: string; phase: string; children: ReactNode }) {
@@ -1019,6 +1205,9 @@ function Fact({ label, value }: { label: string; value: string }) { return <div 
 function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="grid gap-1.5"><Label>{label}</Label>{children}</label>; }
 function NumberField({ label, value, set }: { label: string; value: number; set: (value: number) => void }) { return <Field label={label}><Input type="number" min={1} value={value} onChange={(event) => set(Number(event.target.value))} /></Field>; }
 function Loading({ label }: { label: string }) { return <div className="grid min-h-40 place-items-center rounded-2xl border bg-white" role="status"><span className="text-center"><LoaderCircle className="mx-auto animate-spin text-cyan-600" /><small className="mt-2 block text-slate-500">{label}</small></span></div>; }
+function QueryFailure({ locale, error, retry }: { locale: Locale; error: unknown; retry: () => Promise<unknown> }) {
+  return <Alert role="alert" variant="destructive"><ShieldAlert /><AlertTitle>{message(locale, "workflow.loadFailed")}</AlertTitle><AlertDescription><p>{localizedApiError(error, locale)}</p><Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => void retry()}><RefreshCw />{message(locale, "common.retry")}</Button></AlertDescription></Alert>;
+}
 function Empty({ title }: { title: string }) { return <div className="grid min-h-40 place-items-center rounded-2xl border border-dashed bg-slate-50 p-6 text-center"><span><UserCheck className="mx-auto text-slate-400" /><strong className="mt-2 block">{title}</strong></span></div>; }
 function PermissionNotice({ locale, compact = false }: { locale: Locale; compact?: boolean }) {
   return <div className={`${compact ? "rounded-xl p-4" : "rounded-2xl p-6"} border border-amber-200 bg-amber-50 text-sm text-amber-900`} role="status">

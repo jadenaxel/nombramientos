@@ -31,8 +31,26 @@ export type ResponsibilitySummary = {
   }[];
 };
 
+export type OrganizationDirectoryInsights = {
+  readonly people: number;
+  readonly departments: number;
+  readonly appointments: number;
+  readonly leadership: number;
+  readonly multiRolePeople: number;
+};
+
 function searchable(value: string): string {
   return value.normalize("NFKD").replace(/[\u0300-\u036f]/gu, "").toLocaleLowerCase();
+}
+
+function responsibilityPriority(officeName: string): number {
+  const value = searchable(officeName);
+  if (value.startsWith("primer anciano")) return 0;
+  if (value.startsWith("direccion") || value === "secretaria" || value === "tesoreria") return 1;
+  if (value.startsWith("subdireccion")) return 2;
+  if (value.startsWith("coordinacion") || value.startsWith("responsable")) return 3;
+  if (value.startsWith("secretaria de") || value.startsWith("asistencia") || value.startsWith("asociado")) return 4;
+  return 5;
 }
 
 export function filterOrganizationItems<T extends OrganizationItemModel>(
@@ -57,7 +75,10 @@ export function groupOrganizationByDepartment<T extends OrganizationItemModel>(
   return [...grouped.entries()]
     .map(([department, assignments]) => [
       department,
-      [...assignments].sort((left, right) => left.officeName.localeCompare(right.officeName, locale)),
+      [...assignments].sort((left, right) =>
+        responsibilityPriority(left.officeName) - responsibilityPriority(right.officeName)
+        || left.officeName.localeCompare(right.officeName, locale)
+        || (left.displayName ?? "").localeCompare(right.displayName ?? "", locale)),
     ] as const)
     .sort(([left], [right]) => left.localeCompare(right, locale));
 }
@@ -104,6 +125,21 @@ export function organizationTotals(items: readonly OrganizationItemModel[]): {
     independent: total.independent + (item.memberId && item.independent !== false && !item.linkedToId ? 1 : 0),
     linked: total.linked + (item.memberId && (item.independent === false || Boolean(item.linkedToId)) ? 1 : 0),
   }), { total: 0, occupied: 0, elected: 0, recommended: 0, independent: 0, linked: 0 });
+}
+
+export function organizationDirectoryInsights(
+  items: readonly OrganizationItemModel[],
+): OrganizationDirectoryInsights {
+  const people = new Set(items.flatMap((item) => item.memberId ? [item.memberId] : []));
+  const departments = new Set(items.map((item) => item.departmentId ?? item.departmentName));
+  const workload = organizationWorkload(items);
+  return {
+    people: people.size,
+    departments: departments.size,
+    appointments: items.filter((item) => Boolean(item.memberId)).length,
+    leadership: items.filter((item) => responsibilityPriority(item.officeName) <= 2).length,
+    multiRolePeople: [...workload.values()].filter((summary) => summary.total > 1).length,
+  };
 }
 
 export function organizationReportQuery(input: {

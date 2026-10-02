@@ -29,6 +29,8 @@ export const TENANT_RUNTIME_MUTABLE_TABLES = [
   "e2ee_key_generations",
   "e2ee_key_grants",
   "e2ee_key_challenges",
+  "e2ee_http_session_bindings",
+  "e2ee_http_challenges",
   "report_versions",
   "custodian_device_keys",
   "tally_manifests",
@@ -37,6 +39,7 @@ export const TENANT_RUNTIME_MUTABLE_TABLES = [
 ] as const;
 
 export const TENANT_RUNTIME_APPEND_ONLY_TABLES = [
+  "e2ee_http_devices",
   "encrypted_submissions",
   "participation_receipts",
   "outbox_events",
@@ -88,6 +91,7 @@ const TENANT_RUNTIME_SECURITY_DEFINER_FUNCTIONS = [
   "update_local_role(uuid,uuid,integer,jsonb,text[],text[])",
   "grant_tenant_role_binding(uuid,uuid,uuid)",
   "revoke_tenant_role_binding(uuid,uuid,uuid,integer)",
+  "sync_gestionchurch_federated_roles(uuid,text[])",
 ] as const;
 
 export const TENANT_RUNTIME_FUNCTIONS = [
@@ -100,6 +104,7 @@ export const TENANT_SECURITY_DEFINER_FUNCTIONS = [
   "guard_applied_initial_admin_binding()",
   "assert_local_role_definition_allowed(uuid,text[],text[])",
   "assert_role_binding_allowed(uuid,uuid,uuid)",
+  "prune_expired_e2ee_http_challenges()",
 ] as const;
 
 export type RuntimePrivilege =

@@ -4,7 +4,21 @@
   "info": {
     "title": "Nombramientos Adventistas local API",
     "version": "0.1.0-local",
-    "description": "Contrato completo de la API Fastify implementada para el perfil local. Incluye autenticación y MFA, acceso multi-tenant, flujo institucional persistente, custodia E2EE, fotografías cifradas, reportería redactada y administración de plataforma; no declara estabilidad pública ni despliegue de producción."
+    "description": "Contrato de la API Fastify local. Incluye el perfil independiente de autenticación/MFA y el perfil integrado GestionChurch (sin rutas locales MFA). Los tenants reales exigen sesión ligada al navegador y pruebas ES256 de un uso para datos protegidos. No declara certificación criptográfica, estabilidad pública ni despliegue de producción."
+  },
+  "x-device-session-policy": {
+    "appliesTo": "tenant.kind=real; authenticated protected application routes, including SSE and self session management",
+    "proofHeader": "x-device-proof",
+    "algorithm": "ES256",
+    "profile": "Cookie application profile inspired by RFC 9449; not OAuth DPoP conformance",
+    "requestBinding": "Server-issued durable one-use jti+nonce; exact method, public URI, path+query, raw byte SHA-256 body, Idempotency-Key, tenant, identity, source session, module session, device and signing fingerprint",
+    "nonceTtlSeconds": 60,
+    "enrollmentTtlSeconds": 120,
+    "clockPolicy": "Enrollment and request signatures use issuedAt from the server. Server-side stored expiration and one-use nonce checks remain authoritative, including with a skewed mobile clock.",
+    "pendingNonceBudgetPerSession": 32,
+    "bootstrapExceptions": ["GET /v1/session", "POST /v1/auth/logout", "GET /v1/key-lifecycle", "POST /v1/key-lifecycle/devices", "POST /v1/key-lifecycle/challenges", "device-session bootstrap routes", "explicit /v1/platform/* permissions"],
+    "pendingDeviceOperations": ["grant.initialize", "key.recover for the proven own device with offline recovery proof", "key.declare_lost with existing authority"],
+    "failureCodes": ["DEVICE_SESSION_ENROLLMENT_REQUIRED", "DEVICE_SESSION_APPROVAL_REQUIRED", "DEVICE_PROOF_REQUIRED", "DEVICE_PROOF_INVALID", "DEVICE_PROOF_REPLAYED", "DEVICE_SESSION_REVOKED", "DEVICE_SESSION_SOURCE_CHANGED", "DEVICE_SIGNING_KEY_CHANGED", "DEVICE_PROOF_BUDGET_EXCEEDED"]
   },
   "servers": [
     {
@@ -72,6 +86,54 @@
     }
   ],
   "paths": {
+    "/v1/device-session": {
+      "get": {
+        "tags": ["Key Lifecycle"], "operationId": "getDeviceSessionBinding",
+        "summary": "Read this authenticated session's browser binding and pending-approval state",
+        "description": "Real tenants only. Source authority remains mandatory; an already revoked binding returns 401 even on bootstrap. This route grants no content keys or roles.",
+        "security": [{ "cookieAuth": [] }],
+        "responses": {
+          "200": { "description": "Binding or null, enrollmentRequired and exact session context", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeviceSessionStateResponse" } } } },
+          "default": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/v1/device-session/enrollment/challenge": {
+      "post": {
+        "tags": ["Key Lifecycle"], "operationId": "createDeviceSessionEnrollmentChallenge",
+        "summary": "Issue a purpose-separated HPKE challenge to the existing wrapping key",
+        "description": "Cookie plus a chosen signing JWK does not bind a device. The client must decrypt this challenge and sign the full context; the signing key must differ from the wrapping key.",
+        "security": [{ "cookieAuth": [], "csrfHeader": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "required": ["deviceId", "publicJwk"], "properties": { "deviceId": { "type": "string", "format": "uuid" }, "publicJwk": { "$ref": "#/components/schemas/DeviceSigningPublicJwk" } } } } } },
+        "responses": {
+          "201": { "description": "HPKE enc/ciphertext, complete enrollment context, challengeId and expiry; no plaintext challenge secret", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeviceEnrollmentChallengeResponse" } } } },
+          "default": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/v1/device-session/enrollment/complete": {
+      "post": {
+        "tags": ["Key Lifecycle"], "operationId": "completeDeviceSessionEnrollment",
+        "summary": "Atomically consume HPKE possession challenge and bind the immutable signer",
+        "description": "Checks context, source/session/device ownership, expiry, decrypted secret and ES256 signature. Persisted signer is immutable; a session cannot switch devices. No grant or role is created.",
+        "security": [{ "cookieAuth": [], "csrfHeader": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "required": ["challengeId", "secret", "proof"], "properties": { "challengeId": { "type": "string", "format": "uuid" }, "secret": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$", "writeOnly": true }, "proof": { "type": "string", "maxLength": 8192, "writeOnly": true } } } } } },
+        "responses": { "201": { "description": "Verified immutable binding, which may still be pending explicit custody approval" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/device-session/proofs": {
+      "post": {
+        "tags": ["Key Lifecycle"], "operationId": "issueDeviceRequestNonce",
+        "summary": "Issue short-lived one-use claims for exact request bytes and context",
+        "description": "Claims must be signed by the immutable browser key and sent in x-device-proof on the target request. Issuing a nonce alone grants no authority; pending devices still cannot access protected data. Never include a proof in a URL.",
+        "security": [{ "cookieAuth": [], "csrfHeader": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "required": ["method", "path", "bodyHash"], "properties": { "method": { "type": "string", "enum": ["GET", "POST", "PATCH", "PUT", "DELETE"] }, "path": { "type": "string", "minLength": 1, "maxLength": 8192 }, "bodyHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }, "idempotencyKey": { "type": "string", "maxLength": 200, "default": "" } } } } } },
+        "responses": {
+          "201": { "description": "Exact claims plus enrolled publicJwk; nonce consumption is durable and atomic", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeviceRequestNonceResponse" } } } },
+          "default": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [
@@ -993,13 +1055,52 @@
         }
       }
     },
+    "/v1/integrations/gestionchurch/session": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "exchangeGestionChurchSession",
+        "summary": "Exchange a one-use GestionChurch module launch code for a tenant-bound session",
+        "description": "Available only when GestionChurch federation is configured. Requires the exact Nombramientos browser Origin; the opaque code is redeemed server-to-server, consumed atomically, mapped to least-privilege Nombramientos roles, and never accepted twice.",
+        "security": [],
+        "parameters": [
+          { "$ref": "#/components/parameters/OriginHeader" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GestionChurchSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Federated session created for the selected GestionChurch tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/v1/session": {
       "get": {
         "tags": [
           "Authentication"
         ],
         "operationId": "getSession",
-        "summary": "Return the authenticated principal, active tenant and CSRF binding",
+        "summary": "Return the authenticated principal, active tenant, CSRF binding and authoritative server time",
         "security": [
           {
             "cookieAuth": []
@@ -1011,7 +1112,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionResponse"
+                  "$ref": "#/components/schemas/SessionSnapshotResponse"
                 }
               }
             }
@@ -7656,6 +7757,10 @@
   },
   "components": {
     "securitySchemes": {
+      "deviceProof": {
+        "type": "apiKey", "in": "header", "name": "x-device-proof",
+        "description": "Compact ES256 JWS for the server-issued, one-use exact request claims. Required conditionally by x-device-session-policy for real tenants; a cookie or declared deviceId alone never satisfies it."
+      },
       "cookieAuth": {
         "type": "apiKey",
         "in": "cookie",
@@ -7887,6 +7992,27 @@
       }
     },
     "schemas": {
+      "DeviceSigningPublicJwk": {
+        "type": "object", "additionalProperties": false, "required": ["kty", "crv", "x", "y"],
+        "properties": { "kty": { "const": "EC" }, "crv": { "const": "P-256" }, "x": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" }, "y": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" } }
+      },
+      "DeviceSessionBinding": {
+        "type": "object", "additionalProperties": false,
+        "required": ["sessionId", "identityId", "deviceId", "sourceSessionId", "signingFingerprint", "publicJwk", "boundAt", "lastSeenAt", "status", "deviceStatus", "hasActiveGrant"],
+        "properties": { "sessionId": { "type": "string", "format": "uuid" }, "identityId": { "type": "string", "format": "uuid" }, "deviceId": { "type": "string", "format": "uuid" }, "sourceSessionId": { "type": ["string", "null"], "format": "uuid" }, "signingFingerprint": { "$ref": "#/components/schemas/Sha256Fingerprint" }, "publicJwk": { "$ref": "#/components/schemas/DeviceSigningPublicJwk" }, "boundAt": { "type": "string", "format": "date-time" }, "lastSeenAt": { "type": "string", "format": "date-time" }, "status": { "enum": ["active", "revoked"] }, "deviceStatus": { "enum": ["pending", "active", "revoked"] }, "hasActiveGrant": { "type": "boolean" } }
+      },
+      "DeviceSessionStateResponse": {
+        "type": "object", "required": ["data", "meta"], "properties": {
+          "data": { "type": "object", "required": ["binding", "enrollmentRequired", "session"], "properties": { "binding": { "oneOf": [{ "$ref": "#/components/schemas/DeviceSessionBinding" }, { "type": "null" }] }, "enrollmentRequired": { "type": "boolean" }, "session": { "type": "object", "required": ["sessionId", "tenantId", "identityId", "sourceSessionId"], "properties": { "sessionId": { "type": "string", "format": "uuid" }, "tenantId": { "type": "string", "format": "uuid" }, "identityId": { "type": "string", "format": "uuid" }, "sourceSessionId": { "type": ["string", "null"], "format": "uuid" } } } } },
+          "meta": { "type": "object", "required": ["requestId"], "properties": { "requestId": { "type": "string", "format": "uuid" } } }
+        }
+      },
+      "DeviceEnrollmentChallengeResponse": {
+        "type": "object", "required": ["data", "meta"], "properties": { "data": { "type": "object", "required": ["challengeId", "expiresAt", "issuedAt", "context", "enc", "ciphertext"], "properties": { "challengeId": { "type": "string", "format": "uuid" }, "expiresAt": { "type": "string", "format": "date-time" }, "issuedAt": { "type": "integer", "minimum": 1, "description": "Server-issued Unix seconds; the client uses this for enrollment proof iat, not its wall clock." }, "context": { "type": "object", "description": "Purpose/version/challengeId/tenantId/identityId/sessionId/sourceSessionId/deviceId/signingFingerprint/expiresAt are authenticated by HPKE and echoed in the enrollment signature." }, "enc": { "type": "string" }, "ciphertext": { "type": "string" } } }, "meta": { "type": "object" } }
+      },
+      "DeviceRequestNonceResponse": {
+        "type": "object", "required": ["data", "meta"], "properties": { "data": { "type": "object", "required": ["claims", "publicJwk", "issuedAt"], "properties": { "claims": { "type": "object", "description": "Exact immutable server claims: purpose/version/jti/nonce/htm/htu/iat/sessionId/sourceSessionId/tenantId/identityId/deviceId/signingFingerprint/path/bodyHash/idempotencyKey." }, "publicJwk": { "$ref": "#/components/schemas/DeviceSigningPublicJwk" }, "issuedAt": { "type": "integer", "minimum": 1, "description": "Server-issued Unix seconds equal to claims.iat; the server still verifies the durable nonce expiration." } } }, "meta": { "type": "object" } }
+      },
       "InitialAdminRecoveryStatus": {
         "type": "string",
         "enum": ["pending", "finalization_pending", "enrollment_pending", "admin_active", "revoked", "expired", "failed"]
@@ -12913,6 +13039,20 @@
           "meta": { "$ref": "#/components/schemas/RequestMeta" }
         }
       },
+      "GestionChurchSessionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "description": "Opaque one-use module launch code issued by GestionChurch."
+          }
+        }
+      },
       "LoginRequest": {
         "type": "object",
         "required": [
@@ -13340,6 +13480,22 @@
           "meta": {
             "$ref": "#/components/schemas/RequestMeta"
           }
+        }
+      },
+      "SessionSnapshotResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "allOf": [
+              { "$ref": "#/components/schemas/AuthenticatedSession" },
+              { "type": "object", "required": ["serverTime", "sessionId"], "properties": {
+                "serverTime": { "type": "string", "format": "date-time", "description": "Current server time at response creation for client expiry UX. It does not refresh or extend expiresAt; server expiry/revocation remains authoritative." },
+                "sessionId": { "type": "string", "format": "uuid", "description": "Opaque current authenticated session identifier used to isolate browser readiness between sessions. It is not a bearer credential or an authorization grant." }
+              } }
+            ]
+          },
+          "meta": { "$ref": "#/components/schemas/RequestMeta" }
         }
       },
       "SessionResponse": {

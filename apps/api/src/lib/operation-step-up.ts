@@ -17,6 +17,7 @@ export async function assertOperationStepUp(input: {
   readonly path: string;
   readonly body: unknown;
 }): Promise<void> {
+  if (input.principal.authMethod === "federated") return;
   if (["enrollment_only", "recovery_limited"].includes(input.principal.assuranceLevel)) {
     throw new ApiError(403, "RECOVERY_RESTRICTED", "A recovery or enrollment session cannot authorize privileged operations");
   }
@@ -46,6 +47,7 @@ export async function assertPolicyAwareOperationStepUp(input: {
   readonly body: unknown;
   readonly requestId?: string;
 }): Promise<void> {
+  if (input.principal.authMethod === "federated") return;
   const policy = await input.database.enterpriseAuth.getEffectiveIdentityPolicy(input.principal.activeTenantId);
   const requirement = policy.actionRequirements[input.action];
   const contextRisk = hasSessionContextRisk(input.principal);
@@ -113,6 +115,7 @@ export async function assertGovernedOperationStepUp(input: {
   readonly path: string;
   readonly body: unknown;
 }): Promise<void> {
+  if (input.principal.authMethod === "federated") return;
   const policy = await input.database.enterpriseAuth.getEffectiveIdentityPolicy(input.principal.activeTenantId);
   const requirement = policy.actionRequirements[input.action];
   if (policy.enforcementMode === "enforce") {

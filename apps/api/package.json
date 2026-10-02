@@ -22,9 +22,11 @@
     "@fastify/helmet": "13.0.2",
     "@fastify/rate-limit": "10.3.0",
     "@nombramientos/database": "workspace:*",
+    "@nombramientos/e2ee": "workspace:*",
     "@simplewebauthn/server": "14.0.1",
     "argon2": "0.44.0",
-    "fastify": "5.12.1",
+    "fastify": "5.12.5",
+    "jose": "6.2.12",
     "otpauth": "9.4.1",
     "zod": "3.25.76"
   },
@@ -35,7 +37,7 @@
     "pg": "8.16.3",
     "tsx": "4.20.6",
     "typescript": "5.9.3",
-    "vitest": "3.2.4"
+    "vitest": "4.1.11"
   },
   "engines": {
     "node": ">=24.0.0 <25"

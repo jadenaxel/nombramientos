@@ -223,6 +223,7 @@ async function applyControlRuntimeGrants(pool: Pool, role: string): Promise<void
       "revoke_initial_admin_onboarding_recovery(uuid,integer,uuid,uuid,uuid,uuid,integer,bigint,integer,uuid,uuid,text,text,text,uuid)",
       "authorize_initial_admin_recovery_factor_transaction(uuid,uuid)",
       "finalize_initial_admin_onboarding_recovery(uuid,uuid,uuid)",
+      "sync_gestionchurch_federated_identity(uuid,text,text,text,text,text,text[],text,text)",
     ]) {
       await executeClientFormatted(
         client,
@@ -264,7 +265,7 @@ async function applyControlRuntimeGrants(pool: Pool, role: string): Promise<void
     await executeClientFormatted(
       client,
       `SELECT format(
-         'GRANT UPDATE(last_seen_at,idle_expires_at,last_user_agent_hash,user_agent_change_count,user_agent_context_changed_at,last_ip_prefix_hash,ip_change_count,ip_context_changed_at,revoked_at,revoke_reason,step_up_verified_at,step_up_method,step_up_credential_id,step_up_purpose,step_up_operation_hash,step_up_expires_at) ON TABLE auth_sessions TO %I',
+         'GRANT UPDATE(last_seen_at,idle_expires_at,last_user_agent_hash,user_agent_change_count,user_agent_context_changed_at,last_ip_prefix_hash,ip_change_count,ip_context_changed_at,revoked_at,revoke_reason,step_up_verified_at,step_up_method,step_up_credential_id,step_up_purpose,step_up_operation_hash,step_up_expires_at,gestionchurch_source_session_id) ON TABLE auth_sessions TO %I',
          $1::text
        ) AS sql`,
       [role],

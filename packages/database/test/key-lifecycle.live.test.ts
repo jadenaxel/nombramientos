@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { bindDirectFixtureSession } from "./direct-device-session-fixture.js";
 import { Pool, type PoolClient } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { assertWorkspacePostgresUrl } from "../scripts/script-config.js";
@@ -752,10 +753,15 @@ live("AC-32 tenant-key lifecycle on isolated PostgreSQL", () => {
       reasonCode: "RECOVERY_MATERIAL_UNAVAILABLE",
     };
     const lossHash = hashKeyLifecycleRequest(lossIntent);
-    const lossChallenge = await issue(tenant, winningActor, winningSession, "key.declare_lost", lossHash);
-    const lost = await inTenantTransaction(tenant, winningActor, winningSession, (store) => store.declareKeyLost({
+    // A revoked browser cannot continue; an explicitly registered, bound new
+    // pending browser may perform this narrow irreversible-loss operation.
+    const lossSession = randomUUID();
+    const lossDevice = randomUUID();
+    await register(tenant, winningActor, lossSession, lossDevice, fingerprint("f"));
+    const lossChallenge = await issue(tenant, winningActor, lossSession, "key.declare_lost", lossHash);
+    const lost = await inTenantTransaction(tenant, winningActor, lossSession, (store) => store.declareKeyLost({
       actorIdentityId: winningActor,
-      sessionId: winningSession,
+      sessionId: lossSession,
       idempotencyKey: randomUUID(),
       challengeId: lossChallenge.challengeId,
       requestHash: lossHash,
@@ -846,6 +852,7 @@ async function setContext(client: PoolClient, id: string, actor: string, session
             set_config('app.session_id',$3,true),set_config('app.request_id',$4,true)`,
     [id, actor, session, randomUUID()],
   );
+  await bindDirectFixtureSession(client);
 }
 
 function deviceIntent(deviceId: string, keyFingerprint: `sha256:${string}`) {

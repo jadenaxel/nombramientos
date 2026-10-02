@@ -25,10 +25,10 @@ export const CONTROL_DATABASE_NAME = "nombramientos_control";
 export const DEMO_TENANT_ID = "d0000000-0000-4000-8000-000000000001";
 export const OZAMA_TENANT_ID = "0a2a0000-0000-4000-8000-000000000001";
 
-const EXPECTED_CONTROL_MIGRATIONS = 26;
-const EXPECTED_TENANT_MIGRATIONS = 38;
-const EXPECTED_CONTROL_HEAD = "026_invitation_enrollment_recovery_qualification.sql";
-const EXPECTED_TENANT_HEAD = "036_transactional_invitation_grantor_lock.sql";
+const EXPECTED_CONTROL_MIGRATIONS = 32;
+const EXPECTED_TENANT_MIGRATIONS = 41;
+const EXPECTED_CONTROL_HEAD = "032_gestionchurch_explicit_operational_roles.sql";
+const EXPECTED_TENANT_HEAD = "039_device_bound_http_sessions.sql";
 const FORBIDDEN_OUTPUT_VALUE = /(?:postgres(?:ql)?:\/\/|tenant-db\/|nom_[or]_[0-9a-f]{32}|nom_t_[0-9a-f]{32}|(?:^|[^a-z0-9])(?:password|secret|token|totp)(?:$|[^a-z0-9])|[\w.+-]+@[\w.-]+\.[a-z]{2,})/iu;
 const FORBIDDEN_OUTPUT_KEY = /(?:connection|string|databaseName|databaseHost|runtimeRole|ownerRole|secret|password|token|email|pii)/iu;
 
@@ -244,6 +244,7 @@ interface ControlRouteRow extends QueryResultRow {
   readonly credential_version: number;
   readonly ssl_mode: string;
   readonly latest_provisioning_state: string | null;
+  readonly gestionchurch_tenant_id: string | null;
 }
 
 interface TenantIdentityRow extends QueryResultRow {
@@ -482,9 +483,10 @@ export function evaluateDemoFixtureCounts(
 export function evaluateOzamaOperationalState(
   operationalTableCount: number,
   operationalRowCount: number,
+  allowOperationalRows = false,
 ): number {
   return Number(operationalTableCount !== TENANT_OPERATIONAL_TABLES.length)
-    + Number(operationalRowCount !== 0);
+    + Number(!allowOperationalRows && operationalRowCount !== 0);
 }
 
 export function evaluateWorkerBacklog(
@@ -568,9 +570,10 @@ export async function verifyLocalState(options: LocalStateVerifierOptions): Prom
     options.demoFixtureExpectation,
     options.catalog,
   );
+  const ozamaSpecification = federatedTenantSpecification(OZAMA_SPECIFICATION, ozamaRoute);
   const ozama = await verifyTenant(
     options.tenantPool(databaseNameFor(OZAMA_TENANT_ID)),
-    OZAMA_SPECIFICATION,
+    ozamaSpecification,
     ozamaRoute,
     expectedTenantMigrations,
     expectedTenantComments,
@@ -735,6 +738,7 @@ async function verifyTenant(
     mismatchCount += evaluateOzamaOperationalState(
       operational.operationalTableCount,
       operational.operationalRowCount,
+      Boolean(route?.gestionchurch_tenant_id),
     );
     return { ...base, ...operational, mismatchCount };
   });
@@ -800,6 +804,7 @@ async function readControlRoutes(client: ReadOnlyQueryClient): Promise<readonly 
             tenant.timezone,tenant.locale,tenant.database_host,
             tenant.database_port,tenant.database_name::text,tenant.runtime_role::text,
             tenant.runtime_secret_ref,tenant.credential_version,tenant.ssl_mode,
+            tenant.gestionchurch_tenant_id::text,
             latest_job.state AS latest_provisioning_state
        FROM public.tenants tenant
        LEFT JOIN LATERAL (
@@ -817,9 +822,15 @@ async function readControlRoutes(client: ReadOnlyQueryClient): Promise<readonly 
 async function readOzamaIdentityOrAdminArtifacts(client: ReadOnlyQueryClient): Promise<number> {
   const result = await client.query<{ artifacts: number }>(
     `SELECT (
-       (SELECT count(*) FROM public.tenant_memberships WHERE tenant_id=$1)
+       (SELECT count(*)
+          FROM public.tenant_memberships membership
+          JOIN public.platform_identities identity ON identity.id=membership.identity_id
+         WHERE membership.tenant_id=$1 AND identity.gestionchurch_subject IS NULL)
        +(SELECT count(*) FROM public.tenant_invitations WHERE tenant_id=$1)
-       +(SELECT count(*) FROM public.auth_sessions WHERE active_tenant_id=$1)
+       +(SELECT count(*)
+          FROM public.auth_sessions session_record
+          JOIN public.platform_identities identity ON identity.id=session_record.identity_id
+         WHERE session_record.active_tenant_id=$1 AND identity.gestionchurch_subject IS NULL)
        +(SELECT count(*) FROM public.mfa_challenges WHERE tenant_id=$1)
        +(SELECT count(*) FROM public.platform_admin_bootstrap_tokens WHERE anchor_tenant_id=$1)
      )::int AS artifacts`,
@@ -919,7 +930,7 @@ async function readProtectedControlRoleMismatchCount(client: ReadOnlyQueryClient
 
 function evaluateControlRoutes(routes: readonly ControlRouteRow[]): number {
   const specifications = [DEMO_SPECIFICATION, OZAMA_SPECIFICATION];
-  let mismatches = Number(routes.length !== specifications.length);
+  let mismatches = 0;
   for (const specification of specifications) {
     const candidates = routes.filter(({ id }) => id === specification.id);
     if (candidates.length !== 1) {
@@ -927,22 +938,51 @@ function evaluateControlRoutes(routes: readonly ControlRouteRow[]): number {
       continue;
     }
     const route = candidates[0]!;
-    mismatches += Number(route.kind !== specification.kind)
-      + Number(route.slug !== specification.slug)
-      + Number(route.display_name !== specification.displayName)
-      + Number(route.status !== specification.status)
-      + Number(route.timezone !== specification.timezone)
-      + Number(route.locale !== specification.locale)
-      + Number(route.latest_provisioning_state !== specification.latestProvisioningState)
+    const expected = federatedTenantSpecification(specification, route);
+    mismatches += Number(route.kind !== expected.kind)
+      + Number(route.slug !== expected.slug)
+      + Number(route.display_name !== expected.displayName)
+      + Number(route.status !== expected.status)
+      + Number(route.timezone !== expected.timezone)
+      + Number(route.locale !== expected.locale)
+      + Number(route.latest_provisioning_state !== expected.latestProvisioningState)
       + Number(route.database_host !== "127.0.0.1")
       + Number(route.database_port !== WORKSPACE_POSTGRES_PORT)
-      + Number(route.database_name !== databaseNameFor(specification.id))
-      + Number(route.runtime_role !== runtimeRoleFor(specification.id))
+      + Number(route.database_name !== databaseNameFor(expected.id))
+      + Number(route.runtime_role !== runtimeRoleFor(expected.id))
       + Number(route.credential_version < 1)
-      + Number(route.runtime_secret_ref !== `tenant-db/${specification.id}/runtime/v${route.credential_version}`)
+      + Number(route.runtime_secret_ref !== `tenant-db/${expected.id}/runtime/v${route.credential_version}`)
+      + Number(route.ssl_mode !== "disable");
+  }
+  for (const route of routes.filter(({ id }) => !specifications.some((specification) => specification.id === id))) {
+    const lifecycleIsReadyForFederation = (route.status === "active" && route.latest_provisioning_state === "active")
+      || (route.status === "provisioning" && route.latest_provisioning_state === "pending_activation");
+    mismatches += Number(route.kind !== "real")
+      + Number(!lifecycleIsReadyForFederation)
+      + Number(route.database_host !== "127.0.0.1")
+      + Number(route.database_port !== WORKSPACE_POSTGRES_PORT)
+      + Number(route.database_name !== databaseNameFor(route.id))
+      + Number(route.runtime_role !== runtimeRoleFor(route.id))
+      + Number(route.credential_version < 1)
+      + Number(route.runtime_secret_ref !== `tenant-db/${route.id}/runtime/v${route.credential_version}`)
       + Number(route.ssl_mode !== "disable");
   }
   return mismatches;
+}
+
+function federatedTenantSpecification(
+  specification: TenantSpecification,
+  route: ControlRouteRow | undefined,
+): TenantSpecification {
+  if (specification.id !== OZAMA_TENANT_ID || !route?.gestionchurch_tenant_id) {
+    return specification;
+  }
+  return {
+    ...specification,
+    status: "active",
+    latestProvisioningState: "active",
+    maintenanceClass: "routable",
+  };
 }
 
 async function readTenantIdentity(client: ReadOnlyQueryClient): Promise<TenantIdentityRow> {

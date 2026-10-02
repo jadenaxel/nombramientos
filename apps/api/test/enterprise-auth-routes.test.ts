@@ -1,9 +1,9 @@
 import cookie from "@fastify/cookie";
-import type { DatabaseRuntime, RequestPrincipal } from "@nombramientos/database";
+import type { DatabaseRuntime, DeviceSessionStore, RequestPrincipal } from "@nombramientos/database";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApiConfig } from "../src/config.js";
-import { registerEnterpriseAuthRoutes } from "../src/modules/enterprise-auth-routes.js";
+import { registerEnterpriseAuthRoutes, registerSessionManagementRoutes } from "../src/modules/enterprise-auth-routes.js";
 import type { EnterpriseAuthService } from "../src/modules/enterprise-auth-service.js";
 
 const apps: FastifyInstance[] = [];
@@ -13,6 +13,71 @@ afterEach(async () => {
 });
 
 describe("enterprise authentication route contracts", () => {
+  it("identifies own federated browsers using exact tenant-local bindings without modifying sessions", async () => {
+    const sessions = [
+      { id: "10000000-0000-4000-8000-000000000001", current: true, deviceLabel: null },
+      { id: "10000000-0000-4000-8000-000000000002", current: false, deviceLabel: null },
+      { id: "10000000-0000-4000-8000-000000000003", current: false, deviceLabel: "Original label" },
+    ];
+    const getOwnSessionLabels = vi.fn().mockResolvedValue(new Map([
+      [sessions[0]!.id, "Computadora A"], [sessions[1]!.id, "Teléfono B"],
+      ["10000000-0000-4000-8000-000000000099", "Another identity/tenant must never appear"],
+    ]));
+    const app = await fixtureApp([], sessions, {}, true, { getOwnSessionLabels });
+    const response = await app.inject({ method: "GET", url: "/v1/auth/sessions" });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.items).toEqual([
+      { ...sessions[0], deviceLabel: "Computadora A" },
+      { ...sessions[1], deviceLabel: "Teléfono B" }, sessions[2],
+    ]);
+    expect(getOwnSessionLabels).toHaveBeenCalledExactlyOnceWith(principalFixture().identityId, sessions.map((item) => item.id));
+    expect(sessions.map((item) => item.deviceLabel)).toEqual([null, null, "Original label"]);
+    expect(response.body).not.toContain("Another identity/tenant");
+  });
+
+  it("fails closed instead of returning an unlabeled list when the tenant binding lookup fails", async () => {
+    const getOwnSessionLabels = vi.fn().mockRejectedValue(new Error("Binding lookup unavailable"));
+    const app = await fixtureApp([], [{ id: "10000000-0000-4000-8000-000000000001", deviceLabel: null }], {}, true,
+      { getOwnSessionLabels });
+    const response = await app.inject({ method: "GET", url: "/v1/auth/sessions" });
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).not.toHaveProperty("data.items");
+  });
+
+  it("preserves demo session labels without opening any tenant key-device binding query", async () => {
+    const getOwnSessionLabels = vi.fn().mockRejectedValue(new Error("Must not run in demo"));
+    const sessions = [{ id: "10000000-0000-4000-8000-000000000001", deviceLabel: "Demo browser" }];
+    const app = await fixtureApp([], sessions, {}, true, { getOwnSessionLabels, tenantKind: "demo" });
+    const response = await app.inject({ method: "GET", url: "/v1/auth/sessions" });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.items).toEqual(sessions);
+    expect(getOwnSessionLabels).not.toHaveBeenCalled();
+  });
+
+  it("exposes session self-management for federated login without enabling standalone MFA/passkey routes", async () => {
+    const revokeSession = vi.fn().mockResolvedValue({ revoked: true, current: false });
+    const revokeOtherSessions = vi.fn().mockResolvedValue({ revoked: 2 });
+    const sessions = [{ id: "10000000-0000-4000-8000-000000000001", current: true }];
+    const app = await fixtureApp([], sessions, { revokeSession, revokeOtherSessions }, true);
+    expect((await app.inject({ method: "GET", url: "/v1/auth/sessions" })).json().data).toEqual({ items: sessions });
+    const closed = await app.inject({ method: "DELETE", url: "/v1/auth/sessions/10000000-0000-4000-8000-000000000002", payload: { reason: "user_revoked" } });
+    expect(closed.statusCode).toBe(200);
+    expect(revokeSession).toHaveBeenCalledWith(expect.objectContaining({
+      principal: expect.objectContaining({ authMethod: "federated" }),
+      sessionId: "10000000-0000-4000-8000-000000000002",
+    }));
+    const others = await app.inject({ method: "POST", url: "/v1/auth/sessions/revoke-others", payload: { reason: "user_revoked" } });
+    expect(others.statusCode).toBe(200);
+    expect(others.json().data).toEqual({ revoked: 2 });
+    expect(revokeOtherSessions).toHaveBeenCalledWith(expect.objectContaining({ principal: expect.objectContaining({ authMethod: "federated" }) }));
+    for (const url of ["/v1/auth/passkeys", "/v1/auth/policy"]) {
+      expect((await app.inject({ method: "GET", url })).statusCode).toBe(404);
+    }
+    for (const url of ["/v1/auth/passkeys/registration/options", "/v1/auth/passkeys/authentication/options", "/v1/auth/mfa/enrollment/start"]) {
+      expect((await app.inject({ method: "POST", url, payload: {} })).statusCode).toBe(404);
+    }
+  });
+
   it("wraps passkey and session collections in an items envelope", async () => {
     const passkeys = [{ id: "40000000-0000-4000-8000-000000000001", name: "Laptop" }];
     const sessions = [{ id: "10000000-0000-4000-8000-000000000001", current: true }];
@@ -181,11 +246,15 @@ async function fixtureApp(
   passkeys: readonly unknown[],
   sessions: readonly unknown[],
   serviceOverrides: Record<string, unknown> = {},
+  sessionManagementOnly = false,
+  bindingOptions: { getOwnSessionLabels?: ReturnType<typeof vi.fn>; tenantKind?: "real" | "demo" } = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
   apps.push(app);
   await app.register(cookie);
   const principal = principalFixture();
+  if (bindingOptions.tenantKind) Object.assign(principal, { tenantKind: bindingOptions.tenantKind });
+  if (sessionManagementOnly) Object.assign(principal, { authMethod: "federated", assuranceLevel: "password", aal: 1 });
   app.decorate("apiConfig", {
     environment: "test",
     host: "127.0.0.1",
@@ -208,6 +277,10 @@ async function fixtureApp(
     tenantPoolIdleMs: 1_000,
   } satisfies ApiConfig);
   app.decorate("database", {
+    withDeviceSessionPrincipal: vi.fn(async (_principal: RequestPrincipal, _requestId: string,
+      work: (store: DeviceSessionStore) => Promise<unknown>) => work({
+        getOwnSessionLabels: bindingOptions.getOwnSessionLabels ?? vi.fn().mockResolvedValue(new Map()),
+      } as unknown as DeviceSessionStore)),
     enterpriseAuth: {
       getEffectiveIdentityPolicy: vi.fn().mockResolvedValue({
         enforcementMode: "monitor",
@@ -226,7 +299,8 @@ async function fixtureApp(
     listSessions: vi.fn().mockResolvedValue(sessions),
     ...serviceOverrides,
   } as unknown as EnterpriseAuthService);
-  await registerEnterpriseAuthRoutes(app);
+  if (sessionManagementOnly) await registerSessionManagementRoutes(app);
+  else await registerEnterpriseAuthRoutes(app);
   await app.ready();
   return app;
 }

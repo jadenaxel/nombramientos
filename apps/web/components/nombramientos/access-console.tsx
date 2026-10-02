@@ -19,6 +19,8 @@ import {
 import { message, localizedApiError, permissionDescription } from "@/lib/product-i18n";
 import { InvitationsView } from "./invitations-view";
 
+const gestionChurchManaged = Boolean(process.env.NEXT_PUBLIC_GESTIONCHURCH_URL);
+
 type RoleDraft = {
   name: Record<Locale, string>;
   permissionCodes: string[];
@@ -34,6 +36,7 @@ const copy = {
     system: message("es", "screen.accessConsole.0f0a83b1c289"), local: message("es", "screen.accessConsole.fc6ee689e4b2"), edit: message("es", "screen.accessConsole.b38c34b81dc9"), cancel: message("es", "screen.accessConsole.18e29ea869c8"), bindings: message("es", "screen.accessConsole.56f53f5780cb"),
     grant: message("es", "screen.accessConsole.206df1aab8ce"), identity: message("es", "screen.accessConsole.45dbf9372d61"), role: message("es", "screen.accessConsole.2f7980a7df73"), revoke: message("es", "screen.accessConsole.dd1d879556c8"), noBindings: message("es", "screen.accessConsole.e67f5a926e67"),
     protected: message("es", "screen.accessConsole.71bac93233e4"), protectedBody: message("es", "screen.accessConsole.6bf6130b04a8"),
+    federatedProtected: message("es", "screen.accessConsole.federatedProtected"), federatedProtectedBody: message("es", "screen.accessConsole.federatedProtectedBody"),
     saved: message("es", "screen.accessConsole.ee59cb7189e8"), failed: message("es", "screen.accessConsole.77013335f901"), loading: message("es", "screen.accessConsole.8b30262bd08d"), loadFailed: message("es", "screen.accessConsole.b75e2bb9103b"), retry: message("es", "screen.accessConsole.fe0bfb5b9dec"),
   },
   en: {
@@ -44,6 +47,7 @@ const copy = {
     system: message("en", "screen.accessConsole.0f0a83b1c289"), local: message("en", "screen.accessConsole.fc6ee689e4b2"), edit: message("en", "screen.accessConsole.b38c34b81dc9"), cancel: message("en", "screen.accessConsole.18e29ea869c8"), bindings: message("en", "screen.accessConsole.56f53f5780cb"),
     grant: message("en", "screen.accessConsole.206df1aab8ce"), identity: message("en", "screen.accessConsole.45dbf9372d61"), role: message("en", "screen.accessConsole.2f7980a7df73"), revoke: message("en", "screen.accessConsole.dd1d879556c8"), noBindings: message("en", "screen.accessConsole.e67f5a926e67"),
     protected: message("en", "screen.accessConsole.71bac93233e4"), protectedBody: message("en", "screen.accessConsole.6bf6130b04a8"),
+    federatedProtected: message("en", "screen.accessConsole.federatedProtected"), federatedProtectedBody: message("en", "screen.accessConsole.federatedProtectedBody"),
     saved: message("en", "screen.accessConsole.ee59cb7189e8"), failed: message("en", "screen.accessConsole.77013335f901"), loading: message("en", "screen.accessConsole.8b30262bd08d"), loadFailed: message("en", "screen.accessConsole.b75e2bb9103b"), retry: message("en", "screen.accessConsole.fe0bfb5b9dec"),
   },
   fr: {
@@ -54,6 +58,7 @@ const copy = {
     system: message("fr", "screen.accessConsole.0f0a83b1c289"), local: message("fr", "screen.accessConsole.fc6ee689e4b2"), edit: message("fr", "screen.accessConsole.b38c34b81dc9"), cancel: message("fr", "screen.accessConsole.18e29ea869c8"), bindings: message("fr", "screen.accessConsole.56f53f5780cb"),
     grant: message("fr", "screen.accessConsole.206df1aab8ce"), identity: message("fr", "screen.accessConsole.45dbf9372d61"), role: message("fr", "screen.accessConsole.2f7980a7df73"), revoke: message("fr", "screen.accessConsole.dd1d879556c8"), noBindings: message("fr", "screen.accessConsole.e67f5a926e67"),
     protected: message("fr", "screen.accessConsole.71bac93233e4"), protectedBody: message("fr", "screen.accessConsole.6bf6130b04a8"),
+    federatedProtected: message("fr", "screen.accessConsole.federatedProtected"), federatedProtectedBody: message("fr", "screen.accessConsole.federatedProtectedBody"),
     saved: message("fr", "screen.accessConsole.ee59cb7189e8"), failed: message("fr", "screen.accessConsole.77013335f901"), loading: message("fr", "screen.accessConsole.8b30262bd08d"), loadFailed: message("fr", "screen.accessConsole.b75e2bb9103b"), retry: message("fr", "screen.accessConsole.fe0bfb5b9dec"),
   },
 } as const;
@@ -78,8 +83,10 @@ export function AccessConsole({ locale, session }: { locale: Locale; session: Au
   const roles = useMemo(() => roleQuery.data?.items ?? [], [roleQuery.data?.items]);
   const delegable = useMemo(() => new Set(permissions.filter((item) => item.delegable).map((item) => item.code)), [permissions]);
   const grantableRoles = useMemo(
-    () => roles.filter((role) => role.permissions.length > 0 && role.permissions.every((item) => delegable.has(item.code))),
-    [delegable, roles],
+    () => roles.filter((role) => role.permissions.length > 0 && role.permissions.every((item) => delegable.has(item.code))
+      && !(bindingQuery.data?.identities.find((identity) => identity.identityId === targetIdentityId)?.gestionChurchManaged
+        && isCentralOperationalRole(role.code))),
+    [bindingQuery.data?.identities, delegable, roles, targetIdentityId],
   );
 
   async function refresh() {
@@ -103,20 +110,23 @@ export function AccessConsole({ locale, session }: { locale: Locale; session: Au
   }
 
   const heading = <>
-    <div className="page-title access-title"><div><p className="eyebrow">{labels.eyebrow}</p><h1>{labels.title}</h1><p>{labels.description}</p></div><Badge><ShieldCheck /> MFA</Badge></div>
-    <Alert className="access-assurance"><LockKeyhole /><AlertTitle>{labels.protected}</AlertTitle><AlertDescription>{labels.protectedBody}</AlertDescription></Alert>
+    <div className="page-title access-title"><div><p className="eyebrow">{labels.eyebrow}</p><h1>{labels.title}</h1><p>{labels.description}</p></div><Badge><ShieldCheck /> {gestionChurchManaged ? "GestionChurch" : "MFA"}</Badge></div>
+    <Alert className="access-assurance"><LockKeyhole /><AlertTitle>{gestionChurchManaged ? labels.federatedProtected : labels.protected}</AlertTitle><AlertDescription>{gestionChurchManaged ? labels.federatedProtectedBody : labels.protectedBody}</AlertDescription></Alert>
   </>;
+  const centralAssignments = gestionChurchManaged && <Alert><ShieldCheck /><AlertTitle>GestionChurch</AlertTitle><AlertDescription>{message(locale, "screen.accessConsole.centralAssignments")} <a href={`${process.env.NEXT_PUBLIC_GESTIONCHURCH_URL?.replace(/\/$/, "")}/team`}>{message(locale, "screen.accessConsole.manageCentralAssignments")}</a></AlertDescription></Alert>;
   const accessLoading = permissionQuery.isLoading || roleQuery.isLoading || bindingQuery.isLoading;
   const accessError = permissionQuery.isError || roleQuery.isError || bindingQuery.isError;
   if (accessLoading || accessError) return <div className="access-console-stack">
-    <InvitationsView locale={locale} session={session} />
+    {!gestionChurchManaged && <InvitationsView locale={locale} session={session} />}
     {heading}
+    {centralAssignments}
     {accessLoading ? <div className="loading-block" role="status"><LoaderCircle className="animate-spin" /><span>{labels.loading}</span></div> : <Alert variant="destructive"><AlertTriangle /><AlertTitle>{labels.loadFailed}</AlertTitle><AlertDescription><Button type="button" variant="outline" size="sm" onClick={() => void Promise.all([permissionQuery.refetch(), roleQuery.refetch(), bindingQuery.refetch()])}><RefreshCw /> {labels.retry}</Button></AlertDescription></Alert>}
   </div>;
 
   return <div className="access-console-stack">
-    <InvitationsView locale={locale} session={session} />
+    {!gestionChurchManaged && <InvitationsView locale={locale} session={session} />}
     {heading}
+    {centralAssignments}
     {notice && <Alert className={notice.tone === "error" ? "access-notice-error" : "success-alert"} role="status"><KeyRound /><AlertTitle>{notice.tone === "success" ? labels.saved : labels.failed}</AlertTitle><AlertDescription>{notice.text}</AlertDescription></Alert>}
 
     <div className="access-admin-grid">
@@ -173,17 +183,22 @@ export function AccessConsole({ locale, session }: { locale: Locale; session: Au
         () => api.grantAccessBinding(targetIdentityId, grantRoleId),
         () => { setTargetIdentityId(""); setGrantRoleId(""); },
       ); }}>
-        <label><span>{labels.identity}</span><select value={targetIdentityId} onChange={(event) => setTargetIdentityId(event.target.value)} required><option value="">—</option>{(bindingQuery.data?.identities ?? []).filter((identity) => identity.identityId !== session.user.id && identity.membershipStatus === "active").map((identity) => <option key={identity.identityId} value={identity.identityId}>{identity.displayName} · {identity.email}</option>)}</select></label>
+        <label><span>{labels.identity}</span><select value={targetIdentityId} onChange={(event) => { setTargetIdentityId(event.target.value); setGrantRoleId(""); }} required><option value="">—</option>{(bindingQuery.data?.identities ?? []).filter((identity) => identity.identityId !== session.user.id && identity.membershipStatus === "active").map((identity) => <option key={identity.identityId} value={identity.identityId}>{identity.displayName} · {identity.email}</option>)}</select></label>
         <label><span>{labels.role}</span><select value={grantRoleId} onChange={(event) => setGrantRoleId(event.target.value)} required><option value="">—</option>{grantableRoles.map((role) => <option key={role.id} value={role.id}>{role.name[locale]} · {role.code}</option>)}</select></label>
         <Button disabled={busy} type="submit"><UserPlus /> {labels.grant}</Button>
       </form>
       {(bindingQuery.data?.items.length ?? 0) === 0 ? <p className="access-empty">{labels.noBindings}</p> : <div className="binding-list">{bindingQuery.data?.items.map((binding) => {
         const role = roles.find((item) => item.id === binding.roleId);
-        const canRevoke = Boolean(role && grantableRoles.some((item) => item.id === role.id) && binding.identityId !== session.user.id);
+        const canRevoke = Boolean(role && role.permissions.length > 0 && role.permissions.every((item) => delegable.has(item.code))
+          && binding.identityId !== session.user.id && !(binding.identity?.gestionChurchManaged && isCentralOperationalRole(role.code)));
         return <article key={`${binding.identityId}:${binding.roleId}`}><span className="metric-icon cyan"><ShieldCheck /></span><div><strong>{binding.identity?.displayName ?? binding.identityId}</strong><small>{binding.identity?.email ?? ""}</small></div><div><code>{binding.roleCode}</code><small>v{binding.version}</small></div><Button disabled={busy || !canRevoke} variant="outline" size="sm" onClick={() => void mutate(() => api.revokeAccessBinding(binding.identityId, binding.roleId, binding.version))}><UserMinus /> {labels.revoke}</Button></article>;
       })}</div>}
     </section>
   </div>;
+}
+
+function isCentralOperationalRole(code: string): boolean {
+  return code === "COMMITTEE_MEMBER" || code === "TALLY_CUSTODIAN";
 }
 
 function LocalizedNameFields({ prefix, value, onChange }: {

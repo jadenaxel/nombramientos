@@ -36,6 +36,7 @@
     "db:migrate:tenants": "node dist/scripts/migrate-tenants.js",
     "db:grants:tenant": "node dist/scripts/reconcile-runtime-grants.js",
     "db:provision": "node dist/scripts/provision-tenants.js",
+    "db:sync:gestionchurch": "node dist/scripts/sync-gestionchurch-tenants.js",
     "db:bootstrap:platform-admin": "node dist/scripts/issue-platform-admin-bootstrap.js",
     "db:repair:demo-fixture:check": "pnpm run build && node ./scripts/repair-demo-fixture-artifact.mjs --check",
     "db:verify:local-state": "node dist/scripts/verify-local-state.js",
@@ -56,7 +57,7 @@
     "@types/pg": "8.15.5",
     "tsx": "4.20.6",
     "typescript": "5.9.3",
-    "vitest": "3.2.4"
+    "vitest": "4.1.11"
   },
   "engines": {
     "node": ">=24.0.0 <25"

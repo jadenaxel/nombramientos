@@ -58,6 +58,11 @@ test("standalone runtime refuses non-workspace bindings", () => {
     NOMBRAMIENTOS_WEB_HOST: "127.0.0.1",
     NOMBRAMIENTOS_WEB_PORT: "3000",
   }), { host: "127.0.0.1", port: "3000" });
+  assert.deepEqual(resolveStandaloneBinding({
+    GESTIONCHURCH_MODULE_MODE: "true",
+    NOMBRAMIENTOS_WEB_HOST: "127.0.0.1",
+    NOMBRAMIENTOS_WEB_PORT: "3300",
+  }), { host: "127.0.0.1", port: "3300" });
   for (const source of [
     { NOMBRAMIENTOS_WEB_HOST: "0.0.0.0" },
     { NOMBRAMIENTOS_WEB_HOST: "localhost" },

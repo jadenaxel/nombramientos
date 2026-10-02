@@ -11,6 +11,21 @@ import {
 const now = new Date("2026-09-11T12:00:00.000Z");
 
 describe("recent MFA boundary", () => {
+  it("trusts the GestionChurch federated session without requesting a second local factor", () => {
+    const federated = principal({
+      assuranceLevel: "password",
+      authMethod: "federated",
+      aal: 1,
+      mfaEnabled: false,
+      mfaRequired: false,
+      mfaVerifiedAt: null,
+      phishingResistant: false,
+    });
+    expect(() => assertMfaAssurance(federated, "access administration")).not.toThrow();
+    expect(() => assertRecentMfa(federated, { purpose: "access administration", now })).not.toThrow();
+    expect(() => assertPhishingResistantAssurance(federated, "access administration")).not.toThrow();
+  });
+
   it("accepts a current second-factor proof within the shared five-minute window", () => {
     expect(() => assertRecentMfa(principal({
       mfaVerifiedAt: new Date(now.getTime() - RECENT_MFA_WINDOW_MS + 1),

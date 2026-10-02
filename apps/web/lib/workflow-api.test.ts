@@ -15,6 +15,8 @@ import {
   type ProposalSubmissionPlaintext,
 } from "./workflow-aggregate.ts";
 import { isoToLocalDateTimeInZone, localDateTimeInZoneToIso } from "./workflow-time.ts";
+import { candidacyCanBeSelected, loadWorkflowMemberDirectory, selectedReviewCandidacyIds } from "./workflow-directory.ts";
+import { workflowApi } from "./workflow-api.ts";
 
 const MEMBER_A = "11111111-1111-4111-8111-111111111111";
 const MEMBER_B = "22222222-2222-4222-8222-222222222222";
@@ -30,6 +32,93 @@ const webRoot = path.resolve(import.meta.dirname, "..");
 const workflowClientSource = readFileSync(path.join(webRoot, "lib/workflow-api.ts"), "utf8");
 const workflowConsoleSource = readFileSync(path.join(webRoot, "components/nombramientos/workflow-console.tsx"), "utf8");
 const sessionConsoleSource = readFileSync(path.join(webRoot, "components/nombramientos/workflow-session-console.tsx"), "utf8");
+
+test("confirmed session changes discard local drafts and cancelled changes retain them", () => {
+  const selection = sessionConsoleSource.slice(sessionConsoleSource.indexOf("function selectSession("), sessionConsoleSource.indexOf("const detailQuery"));
+  assert.match(selection, /!confirmLeave\(\)\) return/u);
+  for (const reset of ["setSessionEdits({})", "setAttendanceForm(emptyAttendance)", "setSavedAttendance(JSON.stringify(emptyAttendance))", 'setAgendaForm({ title: "", processId: "", notes: "" })', 'setDecisionForm({ agendaItemId: ""']) {
+    assert.ok(selection.includes(reset), `missing local reset ${reset}`);
+  }
+  assert.ok(selection.indexOf("!confirmLeave()") < selection.indexOf("setSessionEdits({})"));
+  assert.doesNotMatch(selection, /workflowApi\.|localStorage|sessionStorage/u);
+});
+
+test("new proposal manifest retrieves encrypted entries after the creation receipt", async (context) => {
+  const manifest = await verifiedManifest();
+  const fetch = context.mock.method(globalThis, "fetch", async (_url: RequestInfo | URL, init?: RequestInit) =>
+    new Response(JSON.stringify({ data: init?.method === "POST"
+      ? { manifestId: manifest.manifestId, manifestHash: manifest.manifestHash, entries: manifest.entries.map((entry) => ({ position: entry.position, receiptId: entry.receiptId, contentHash: entry.contentHash, submissionRoundVersion: entry.submissionRoundVersion })) }
+      : manifest }), { status: init?.method === "POST" ? 201 : 200 }));
+  const result = await workflowApi.createProposalManifest(MEMBER_A, 3);
+  await verifyProposalManifest(result);
+  assert.equal(fetch.mock.calls.length, 2);
+  assert.equal(fetch.mock.calls[0]?.arguments[1]?.method, "POST");
+  assert.equal(fetch.mock.calls[1]?.arguments[1]?.method ?? "GET", "GET");
+  assert.deepEqual(result, manifest);
+});
+
+test("failed manifest creation is not silently retried or followed by a read", async (context) => {
+  const fetch = context.mock.method(globalThis, "fetch", async () =>
+    new Response(JSON.stringify({ error: { code: "VERSION_CONFLICT", message: "Synthetic conflict" } }), { status: 409 }));
+  await assert.rejects(workflowApi.createProposalManifest(MEMBER_A, 3), (error: unknown) =>
+    typeof error === "object" && error !== null && "code" in error && error.code === "VERSION_CONFLICT");
+  assert.equal(fetch.mock.calls.length, 1);
+});
+
+test("workflow member selectors load later pages and reject a repeating cursor", async () => {
+  const requested: Array<string | undefined> = [];
+  const directory = await loadWorkflowMemberDirectory(async (cursor) => {
+    requested.push(cursor);
+    return cursor ? { items: ["member-251"], total: 1 } : { items: Array.from({ length: 250 }, (_, index) => `member-${index + 1}`), total: 251, nextCursor: "page-2" };
+  });
+  assert.deepEqual(requested, [undefined, "page-2"]);
+  assert.equal(directory.items.length, 251);
+  assert.equal(directory.items.at(-1), "member-251");
+  assert.equal(directory.total, 251);
+  await assert.rejects(loadWorkflowMemberDirectory(async () => ({ items: [], total: 0, nextCursor: "repeated" })), /MEMBER_DIRECTORY_PAGINATION_INVALID/u);
+  assert.match(workflowConsoleSource, /loadWorkflowMemberDirectory\(api\.members\)/u);
+});
+
+test("workflow directory totals never fall below the records loaded during pagination", async () => {
+  const directory = await loadWorkflowMemberDirectory(async (cursor) => cursor
+    ? { items: ["added-after-first-read"], total: 1 }
+    : { items: ["first"], total: 1, nextCursor: "page-2" });
+  assert.deepEqual(directory, { items: ["first", "added-after-first-read"], total: 2 });
+});
+
+test("quick start names the Nominations directory and distinguishes unavailable counts from zero", () => {
+  assert.match(workflowConsoleSource, /memberTotal=\{membersQuery\.data\?\.total\}/u);
+  assert.match(workflowConsoleSource, /value \?\? "—"/u);
+  assert.match(workflowConsoleSource, /"workflow\.quickStart\.dataHelp", \{ church: session\.tenant\.name \}/u);
+  for (const locale of ["es", "en", "fr"] as const) {
+    assert.match(getMessage(locale, "workflow.quickStart.dataHelp"), /\{church\}/u);
+    assert.match(getMessage(locale, "workflow.quickStart.dataHelp"), /GestionChurch/u);
+    assert.match(getMessage(locale, "workflow.quickStart.peopleLinked"), locale === "es" ? /Nombramientos/u : /Nominations/u);
+    assert.match(getMessage(locale, "workflow.quickStart.noDuplicateHelp"), locale === "es" ? /borrador/u : locale === "en" ? /draft/u : /brouillon/u);
+  }
+});
+
+test("a selected candidacy leaves the ballot selection when its review becomes terminal", () => {
+  const overrides = { candidate: true, omitted: false };
+  assert.deepEqual(selectedReviewCandidacyIds([{ id: "candidate", state: "UNDER_REVIEW" }, { id: "omitted", state: "PRELIMINARY_ACCEPTED" }], overrides), ["candidate"]);
+  for (const state of ["PROPOSED", "WITHDRAWN", "EXCLUDED", "INELIGIBLE"]) {
+    assert.equal(candidacyCanBeSelected(state), false);
+    assert.deepEqual(selectedReviewCandidacyIds([{ id: "candidate", state }], overrides), []);
+  }
+  assert.deepEqual(selectedReviewCandidacyIds([{ id: "newly-reviewed", state: "PRELIMINARY_ACCEPTED" }], overrides), ["newly-reviewed"]);
+  assert.match(workflowConsoleSource, /selectedReviewCandidacyIds\(reviewQuery\.data\?\.candidates \?\? \[\], selectionOverrides\)/u);
+  assert.match(workflowConsoleSource, /disabled=\{!candidacyCanBeSelected\(candidate\.state\)\}/u);
+});
+
+test("workflow read failures and quick-start rejection have visible recovery controls", () => {
+  assert.match(workflowConsoleSource, /cyclesQuery\.isError \? <QueryFailure/u);
+  assert.match(workflowConsoleSource, /workflowQuery\.isError \? <QueryFailure/u);
+  assert.match(workflowConsoleSource, /reviewQuery\.isError && <QueryFailure/u);
+  const wizard = workflowConsoleSource.slice(workflowConsoleSource.indexOf("function QuickStartPanel"), workflowConsoleSource.indexOf("function QuickStartAssurance"));
+  assert.match(wizard, /catch \(error\) \{\s*setStartError\(localizedApiError\(error, locale\)\);\s*throw error;/u);
+  assert.match(wizard, /\(startError \|\| dataError\) && <Alert role="alert"/u);
+  assert.match(wizard, /canContinue = [^;]*&& !dataError/u);
+});
 async function verifiedManifest() {
   const contentHash = await proposalEnvelopeContentHash(envelope);
   const entries = Array.from({ length: 7 }, (_, index) => ({
@@ -165,9 +254,29 @@ test("session notes and decision evidence use exact tenant-scoped encrypted cont
   assert.doesNotMatch(sessionConsoleSource, /localStorage|sessionStorage|console\.|error\.message/u);
 });
 
+test("session encryption enters the busy and error boundary before asynchronous preparation", () => {
+  const actionStart = workflowConsoleSource.indexOf("async function act(");
+  const guard = workflowConsoleSource.indexOf("if (actionInFlightRef.current) return;", actionStart);
+  const operation = workflowConsoleSource.indexOf("await action();", actionStart);
+  assert.ok(guard > actionStart && guard < operation);
+  assert.match(workflowConsoleSource, /finally \{ actionInFlightRef\.current = false; setBusy\(undefined\); \}/u);
+  for (const [operation, end, preparation] of [
+    ["saveSession", "addAgendaItem", "await sealSessionTitle"],
+    ["addAgendaItem", "moveAgenda", "await sealAgendaTitle"],
+    ["recordDecision", "return <section", "await encryptJson"],
+  ]) {
+    const start = sessionConsoleSource.indexOf(`async function ${operation}(`);
+    const next = sessionConsoleSource.indexOf(end === "return <section" ? end : `async function ${end}(`, start);
+    const operationSource = sessionConsoleSource.slice(start, next);
+    const boundary = operationSource.indexOf("await run(");
+    assert.ok(boundary >= 0 && boundary < operationSource.indexOf(preparation), operation);
+    assert.ok(boundary < operationSource.indexOf("throw new Error"), operation);
+  }
+});
+
 test("workflow consoles enforce the permission required by every privileged query and action", () => {
   assert.match(workflowConsoleSource, /enabled: canManageCycle/u);
-  assert.match(workflowConsoleSource, /queryFn: \(\) => api\.members\(\), enabled: canManageCycle && canReadMembers/u);
+  assert.match(workflowConsoleSource, /queryFn: \(\) => loadWorkflowMemberDirectory\(api\.members\), enabled: canManageCycle && canReadMembers/u);
   assert.match(workflowConsoleSource, /enabled: canManageCommittee && canReadMembers && Boolean\(resolvedCycleId\)/u);
   assert.match(workflowConsoleSource, /enabled: isOrdinaryWorkflow && canReviewCandidates && Boolean/u);
   assert.match(workflowConsoleSource, /enabled: canReadAssignmentHistory && Boolean\(assignment\)/u);

@@ -187,6 +187,23 @@ test("los diálogos largos permanecen operables en viewports móviles", () => {
   assert.match(dialog, /overflow-y-auto/);
 });
 
+test("el inicio guiado crea el período sin convertir el registro del dispositivo en una barrera", () => {
+  const workflow = source("workflow-console.tsx");
+  const shell = source("app-shell.tsx");
+  const keyLifecycle = source("key-lifecycle-view.tsx");
+  assert.match(workflow, /workflow\.quickStart\.start/);
+  assert.match(workflow, /initiationMode: "guided_quick_start"/);
+  assert.match(workflow, /rosterSource: "tenant_directory"/);
+  assert.match(workflow, /workflowApi\.createCycle/);
+  assert.match(workflow, /hasPermissions\(session, "cycle\.manage"\)/);
+  assert.match(shell, /session\.permissions\.includes\("cycle\.manage"\)/);
+  assert.match(shell, /href=\{`\/\$\{locale\}\/app\/workflow`\}/);
+  assert.match(shell, /section === "overview" \|\| section === "organization" \|\| section === "workflow"/);
+  assert.match(shell, /private committee\/session actions still enforce the vault/);
+  assert.match(keyLifecycle, /gestionChurchManaged && session\.permissions\.includes\("cycle\.manage"\)/);
+  assert.match(keyLifecycle, /router\.push\(`\/\$\{locale\}\/app\/workflow`\)/);
+});
+
 test("los cierres genéricos y el menú móvil mantienen nombre y estructura accesibles", () => {
   const dialog = readFileSync(path.resolve(root, "components", "ui", "dialog.tsx"), "utf8");
   const sheet = readFileSync(path.resolve(root, "components", "ui", "sheet.tsx"), "utf8");
@@ -225,6 +242,25 @@ test("preferencias y consultas auxiliares no presentan éxito o vacío ficticio"
   assert.match(access, /permissionDescription\(locale, permission\)/);
   const workspace = source("workspace-view.tsx");
   assert.match(workspace, /roundQuery\.isError\s*\|\|\s*publishedQuery\.isError/);
+});
+
+test("una sesión federada vencida se recupera una sola vez y vuelve a la sección autorizada", () => {
+  const api = readFileSync(path.join(root, "lib/api.ts"), "utf8");
+  const sessionContract = readFileSync(path.join(root, "lib/gestionchurch-session.ts"), "utf8");
+  const providers = readFileSync(path.join(root, "app/providers.tsx"), "utf8");
+  const shell = source("app-shell.tsx");
+  const bridge = source("gestionchurch-bridge.tsx");
+
+  assert.match(sessionContract, /SESSION_INVALID_EVENT/);
+  assert.match(sessionContract, /FEDERATED_RESUME_PATH_KEY/);
+  assert.match(api, /response\.status === 401[\s\S]*?dispatchEvent\(new Event\(SESSION_INVALID_EVENT\)\)/);
+  assert.match(providers, /error instanceof ApiError && \[401, 403\]\.includes\(error\.status\)/);
+  assert.match(shell, /sessionRecoveryStarted = useRef\(false\)/);
+  assert.match(shell, /addEventListener\(SESSION_INVALID_EVENT, recoverSession\)/);
+  assert.match(shell, /sessionStorage\.setItem\(FEDERATED_RESUME_PATH_KEY, window\.location\.pathname\)/);
+  assert.match(shell, /queryClient\.cancelQueries\(\)/);
+  assert.match(bridge, /sessionStorage\.getItem\(FEDERATED_RESUME_PATH_KEY\)/);
+  assert.match(bridge, /canAccessAppSection\(resumeSection\[2\] \?\? "", session\.permissions\)/);
 });
 
 test("el padrón reserva ancho legible a la identidad y acota las acciones", () => {
@@ -304,6 +340,8 @@ test("la guía inicial no inventa estados y ofrece un destino que el rol puede a
   const onboarding = workspace.slice(workspace.indexOf("function OnboardingView"), workspace.indexOf("function PageTitle"));
   assert.match(onboarding, /session\.permissions\.includes\("member\.read"\)/);
   assert.match(onboarding, /session\.permissions\.includes\("cycle\.manage"\)/);
+  assert.match(onboarding, /workflow\.quickStart\.start/);
+  assert.ok(onboarding.indexOf('section: "workflow"') < onboarding.indexOf('section: "members"'));
   assert.match(onboarding, /section: "catalog"/);
   assert.doesNotMatch(onboarding, /"Pendiente","Pending","En attente"/);
   assert.match(workspace, /<OnboardingView locale=\{locale\} session=\{session\}/);

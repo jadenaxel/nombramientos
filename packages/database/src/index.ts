@@ -4,6 +4,7 @@ export * from "./audit-anchors.js";
 export * from "./audit-anchor-ledger.js";
 export * from "./config.js";
 export * from "./content-key-write-guard.js";
+export * from "./device-session-store.js";
 export * from "./control-store.js";
 export * from "./core-workflow.js";
 export * from "./core-workflow-store.js";

@@ -16,6 +16,7 @@ import { decryptJson, encryptJson } from "@/lib/crypto-client";
 import { message, localizedApiError } from "@/lib/product-i18n";
 import { isLegacyTitleUnavailable, openAgendaTitle, openSessionTitle, sealAgendaTitle, sealSessionTitle } from "@/lib/session-title-crypto";
 import { isoToLocalDateTimeInZone, localDateTimeInZoneToIso } from "@/lib/workflow-time";
+import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 import {
   workflowApi,
   type CommitteeCandidate,
@@ -144,6 +145,9 @@ export function WorkflowSessionConsole({
   const [sessionTitles, setSessionTitles] = useState<Map<string, string>>(new Map());
   const [agendaTitles, setAgendaTitles] = useState<Map<string, string>>(new Map());
   const [titleError, setTitleError] = useState<string>();
+  const [savedAttendance, setSavedAttendance] = useState(() => JSON.stringify(attendanceForm));
+  const confirmLeave = useUnsavedChanges(Object.keys(sessionEdits).length > 0 || Boolean(agendaForm.title || agendaForm.notes || agendaForm.processId
+    || decisionForm.agendaItemId || decisionForm.evidence || decisionForm.outcome !== "RECORDED" || decisionForm.decisionCode !== "INFORMATION_NOTED") || JSON.stringify(attendanceForm) !== savedAttendance, locale);
 
   const sessionsQuery = useQuery({
     queryKey: ["workflow-sessions", tenantId, cycleId],
@@ -155,6 +159,18 @@ export function WorkflowSessionConsole({
     [sessionsQuery.data?.items, workflowSessions],
   );
   const resolvedSessionId = encryptedSessions.some(({ id }) => id === selectedSessionId) ? selectedSessionId : encryptedSessions[0]?.id ?? "";
+  function selectSession(nextSessionId: string) {
+    if (nextSessionId === resolvedSessionId || !confirmLeave()) return;
+    // A confirmed context change discards only local drafts, never persisted data.
+    // Do not silently carry another session's agenda/decision/attendance forward.
+    const emptyAttendance = { identityId: "", memberId: "", presenceStatus: "PRESENT" as const, advisory: false, votingRight: true, substituteForIdentityId: "" };
+    setSessionEdits({});
+    setAttendanceForm(emptyAttendance);
+    setSavedAttendance(JSON.stringify(emptyAttendance));
+    setAgendaForm({ title: "", processId: "", notes: "" });
+    setDecisionForm({ agendaItemId: "", decisionCode: "INFORMATION_NOTED", outcome: "RECORDED", evidence: "" });
+    setSelectedSessionId(nextSessionId);
+  }
   const detailQuery = useQuery({
     queryKey: ["workflow-session", tenantId, resolvedSessionId],
     queryFn: () => workflowApi.session(resolvedSessionId),
@@ -288,20 +304,20 @@ export function WorkflowSessionConsole({
   async function saveAttendance() {
     if (!session || !attendanceForm.identityId) return;
     const existing = attendance.find(({ identityId }) => identityId === attendanceForm.identityId);
-    await run("session-attendance", () => workflowApi.upsertSessionAttendance(session.id, attendanceForm.identityId, {
+    await run("session-attendance", async () => { await workflowApi.upsertSessionAttendance(session.id, attendanceForm.identityId, {
       expectedVersion: existing?.version ?? 0,
       memberId: attendanceForm.memberId || null,
       presenceStatus: attendanceForm.presenceStatus,
       advisory: attendanceForm.advisory,
       votingRight: attendanceForm.votingRight,
       substituteForIdentityId: attendanceForm.substituteForIdentityId || null,
-    }), message(locale, "screen.workflowSessionConsole.f1ea96995b81"));
+    }); setSavedAttendance(JSON.stringify(attendanceForm)); }, message(locale, "screen.workflowSessionConsole.f1ea96995b81"));
   }
 
   async function saveSession() {
     if (!session || !sessionEdit) return;
-    if (!vaultKey || !vaultKeyId) throw new Error(message(locale, "screen.workflowSessionConsole.4ec5124ba274"));
     await run("session-update", async () => {
+      if (!vaultKey || !vaultKeyId) throw new Error(message(locale, "screen.workflowSessionConsole.4ec5124ba274"));
       const sealedTitle = await sealSessionTitle(vaultKey, vaultKeyId, {
         tenantId,
         cycleId,
@@ -325,21 +341,21 @@ export function WorkflowSessionConsole({
 
   async function addAgendaItem() {
     if (!session || !agendaForm.title.trim()) return;
-    if (!vaultKey || !vaultKeyId) throw new Error(message(locale, "screen.workflowSessionConsole.681689ded839"));
-    const itemId = crypto.randomUUID();
-    const sealedTitle = await sealAgendaTitle(vaultKey, vaultKeyId, {
-      tenantId,
-      sessionId: session.id,
-      agendaItemId: itemId,
-      titleVersion: 1,
-    }, agendaForm.title);
-    let notesEnvelope: Envelope | undefined;
-    if (agendaForm.notes.trim()) {
-      notesEnvelope = (await encryptJson(vaultKey, vaultKeyId, {
-        tenantId, sessionId: session.id, purpose: "session-agenda-notes", schemaVersion: 1,
-      }, { text: agendaForm.notes.trim() })).envelope;
-    }
     await run("session-agenda", async () => {
+      if (!vaultKey || !vaultKeyId) throw new Error(message(locale, "screen.workflowSessionConsole.681689ded839"));
+      const itemId = crypto.randomUUID();
+      const sealedTitle = await sealAgendaTitle(vaultKey, vaultKeyId, {
+        tenantId,
+        sessionId: session.id,
+        agendaItemId: itemId,
+        titleVersion: 1,
+      }, agendaForm.title);
+      let notesEnvelope: Envelope | undefined;
+      if (agendaForm.notes.trim()) {
+        notesEnvelope = (await encryptJson(vaultKey, vaultKeyId, {
+          tenantId, sessionId: session.id, purpose: "session-agenda-notes", schemaVersion: 1,
+        }, { text: agendaForm.notes.trim() })).envelope;
+      }
       await workflowApi.addSessionAgendaItem(session.id, {
         expectedSessionVersion: session.version,
         itemId,
@@ -368,15 +384,15 @@ export function WorkflowSessionConsole({
 
   async function recordDecision() {
     if (!session || !decisionForm.agendaItemId) return;
-    let evidenceEnvelope: Envelope | undefined;
-    if (decisionForm.evidence.trim()) {
-      if (!vaultKey || !vaultKeyId) return;
-      evidenceEnvelope = (await encryptJson(vaultKey, vaultKeyId, {
-        tenantId, sessionId: session.id, agendaItemId: decisionForm.agendaItemId,
-        purpose: "session-decision-evidence", schemaVersion: 1,
-      }, { text: decisionForm.evidence.trim() })).envelope;
-    }
     await run("session-decision", async () => {
+      let evidenceEnvelope: Envelope | undefined;
+      if (decisionForm.evidence.trim()) {
+        if (!vaultKey || !vaultKeyId) throw new Error(message(locale, "screen.workflowSessionConsole.681689ded839"));
+        evidenceEnvelope = (await encryptJson(vaultKey, vaultKeyId, {
+          tenantId, sessionId: session.id, agendaItemId: decisionForm.agendaItemId,
+          purpose: "session-decision-evidence", schemaVersion: 1,
+        }, { text: decisionForm.evidence.trim() })).envelope;
+      }
       await workflowApi.recordSessionDecision(session.id, {
         expectedSessionVersion: session.version,
         agendaItemId: decisionForm.agendaItemId,
@@ -398,7 +414,7 @@ export function WorkflowSessionConsole({
     {!sessions.length ? <p className="rounded-xl border border-dashed p-4 text-sm text-slate-500">{message(locale, "screen.workflowSessionConsole.c6a1260d7b5d")}</p> : <div className="space-y-5">
       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
         <label className="grid gap-1 text-sm font-medium">{message(locale, "screen.workflowSessionConsole.ec1e813ae77d")}
-          <select className="h-10 rounded-md border bg-white px-3 text-sm" value={resolvedSessionId} onChange={(event) => setSelectedSessionId(event.target.value)}>
+          <select className="h-10 rounded-md border bg-white px-3 text-sm" value={resolvedSessionId} onChange={(event) => selectSession(event.target.value)}>
             {sessions.map((item) => <option key={item.id} value={item.id}>{item.sequence}. {item.title} · {statusLabel(locale, item.status)}</option>)}
           </select>
         </label>

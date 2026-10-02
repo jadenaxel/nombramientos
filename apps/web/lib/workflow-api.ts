@@ -375,7 +375,13 @@ export const workflowApi = {
   resolveEligibilityPause: (processId: string, body: object) => mutation<Record<string, unknown>>(`/v1/office-processes/${resource(processId)}/eligibility-pause/resolve`, "POST", body),
   openProposalRound: (roundId: string, expectedRoundVersion: number, expectedProcessVersion: number) => mutation<Record<string, unknown>>(`/v1/proposal-rounds/${resource(roundId)}/open`, "POST", { expectedRoundVersion, expectedProcessVersion }),
   closeProposalRound: (roundId: string, expectedRoundVersion: number, expectedProcessVersion: number) => mutation<Record<string, unknown>>(`/v1/proposal-rounds/${resource(roundId)}/close`, "POST", { expectedRoundVersion, expectedProcessVersion, reasonCode: "ALL_FROZEN_ELECTORS_RESPONDED" }),
-  createProposalManifest: (roundId: string, expectedRoundVersion: number) => mutation<ProposalManifest>(`/v1/proposal-rounds/${resource(roundId)}/manifest`, "POST", { expectedRoundVersion }),
+  createProposalManifest: async (roundId: string, expectedRoundVersion: number): Promise<ProposalManifest> => {
+    const path = `/v1/proposal-rounds/${resource(roundId)}/manifest`;
+    // Creation returns immutable receipt metadata, not the encrypted entries.
+    // Retrieve the complete manifest before any local verification/decryption.
+    await mutation<Record<string, unknown>>(path, "POST", { expectedRoundVersion });
+    return apiRequest<ProposalManifest>(path);
+  },
   proposalManifest: (roundId: string) => apiRequest<ProposalManifest>(`/v1/proposal-rounds/${resource(roundId)}/manifest`),
   consolidateProposals: (roundId: string, body: object) => mutation<Record<string, unknown>>(`/v1/proposal-rounds/${resource(roundId)}/aggregate`, "POST", body),
   reviewBoard: (processId: string) => apiRequest<ReviewBoard>(`/v1/office-processes/${resource(processId)}/review-board`),

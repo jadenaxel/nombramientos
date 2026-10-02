@@ -16,7 +16,7 @@ const text = {
   fr: { active: message("fr", "screen.tenantSwitcher.acdb3f83aac1"), change: message("fr", "screen.tenantSwitcher.27b31c9e346f"), failed: message("fr", "screen.tenantSwitcher.682230e7d7eb") },
 } as const;
 
-export function TenantSwitcher({ locale, session }: { locale: Locale; session: AuthenticatedSession }) {
+export function TenantSwitcher({ locale, session, deviceReady = false }: { locale: Locale; session: AuthenticatedSession; deviceReady?: boolean }) {
   const labels = text[locale];
   const vault = useVault();
   const router = useRouter();
@@ -24,8 +24,9 @@ export function TenantSwitcher({ locale, session }: { locale: Locale; session: A
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const query = useQuery({
-    queryKey: ["tenant-memberships", session.user.id],
+    queryKey: ["tenant-memberships", session.user.id, session.sessionId],
     queryFn: api.memberships,
+    enabled: session.tenant.kind !== "real" || deviceReady,
     staleTime: 30_000,
   });
   const memberships = (query.data?.items ?? []).filter((item) =>

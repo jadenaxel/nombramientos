@@ -63,17 +63,17 @@ export async function evaluateIdentitySessionPolicy(
     findings.push("synced_passkey_authentication_disabled");
     activeControlViolation = true;
   }
-  if (principal.mfaRequired && aal < 2) {
+  if (method !== "federated" && principal.mfaRequired && aal < 2) {
     findings.push("identity_mfa_required");
     activeControlViolation = true;
   }
 
   let assuranceTargetViolation = false;
-  if (aal < policy.minimumAal) {
+  if (method !== "federated" && aal < policy.minimumAal) {
     findings.push("session_aal_below_minimum");
     assuranceTargetViolation = true;
   }
-  if (policyEligiblePasskeyCount < policy.minimumPasskeyCount) {
+  if (method !== "federated" && policyEligiblePasskeyCount < policy.minimumPasskeyCount) {
     findings.push("passkey_count_below_minimum");
     assuranceTargetViolation = true;
   }

@@ -198,6 +198,10 @@ export async function registerKeyLifecycleRoutes(app: FastifyInstance): Promise<
         reasonCode: intent.reasonCode,
         confirmLastActiveGrant: intent.confirmLastActiveGrant,
       }));
+    const revokedSessions = await app.database.withDeviceSessionPrincipal(principal,request.id,(store) => store.revokedSessionIds());
+    // The same-transaction tenant revocation is authoritative even during a
+    // transient control-plane cleanup failure. The next request remains denied.
+    await app.database.control.revokeTenantDeviceSessions(principal.activeTenantId,revokedSessions).catch(() => undefined);
     return respond(request, reply, result);
   }));
 

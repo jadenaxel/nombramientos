@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { appendTenantAuditEventV2 } from "./audit-event-chain.js";
+import { pinProvenDeviceSession } from "./device-session-store.js";
 import {
   KEY_GRANT_REVOKE_REASON_CODES,
   KEY_LOSS_REASON_CODES,
@@ -356,6 +357,7 @@ export class KeyLifecycleStore {
       await this.consumeChallenge(input, "grant.initialize");
       await this.lockLifecycle();
       await this.assertRealTenant();
+      await this.requireBoundDevice(input.actorIdentityId, input.deviceId, true);
       const existing = await this.client.query("SELECT 1 FROM e2ee_key_generations LIMIT 1");
       if (existing.rowCount !== 0) {
         throw conflict("KEY_LIFECYCLE_ALREADY_INITIALIZED", "The tenant already has a key generation");
@@ -674,6 +676,8 @@ export class KeyLifecycleStore {
       await this.consumeChallenge(input, "key.recover");
       await this.lockLifecycle();
       const generation = await this.requireActiveGeneration(input.tenantKeyId);
+      if (input.targetIdentityId === input.actorIdentityId) await this.requireBoundDevice(input.actorIdentityId,input.targetDeviceId,true);
+      else await this.requireActorGrant(input.actorIdentityId,generation.id);
       if (generation.generation !== input.generation) {
         throw conflict("KEY_GENERATION_CHANGED", "Recovery authorization targets a stale tenant-key generation");
       }
@@ -727,6 +731,7 @@ export class KeyLifecycleStore {
     return this.executeIdempotent(input.actorIdentityId, "e2ee.key.declare_lost", input.idempotencyKey, { ...input, reasonCode }, async () => {
       await this.consumeChallenge(input, "key.declare_lost");
       await this.lockLifecycle();
+      await this.requireBoundDevice(input.actorIdentityId,undefined,true);
       const generation = await this.requireActiveGeneration(input.tenantKeyId);
       if (await this.activeGrantCount(generation.id) !== 0) {
         throw conflict("ACTIVE_GRANTS_REMAIN", "A tenant key cannot be declared lost while an online grant remains active");
@@ -839,6 +844,18 @@ export class KeyLifecycleStore {
     await this.client.query("SELECT pg_advisory_xact_lock(hashtextextended('e2ee_key_lifecycle_v1',0))");
   }
 
+  private async requireBoundDevice(identityId: string, expectedDeviceId?: string, allowPending = false): Promise<string> {
+    const proof = await this.client.query<{ device_id: string; session_id: string }>(`SELECT
+      NULLIF(current_setting('app.proven_device_id',true),'') device_id,
+      NULLIF(current_setting('app.session_id',true),'') session_id`);
+    const bound = proof.rows[0];
+    if (!bound?.device_id || !bound.session_id || (expectedDeviceId && bound.device_id !== expectedDeviceId)) {
+      throw new KeyLifecycleError(403,"DEVICE_PROOF_REQUIRED","The operation requires this browser's verified device proof");
+    }
+    await pinProvenDeviceSession(this.client,identityId,bound.session_id,bound.device_id,allowPending);
+    return bound.device_id;
+  }
+
   private async requireActiveGeneration(tenantKeyId?: string): Promise<GenerationRow> {
     const result = await this.client.query<GenerationRow>(
       `SELECT id,tenant_key_id::text,generation,status,recovery_public_key,recovery_key_fingerprint,
@@ -884,14 +901,16 @@ export class KeyLifecycleStore {
     generationId: string,
     status: Extract<KeyGrantStatus, "active" | "retired"> = "active",
   ): Promise<void> {
+    const deviceId = await this.requireBoundDevice(actorIdentityId);
     const result = await this.client.query(
       `SELECT 1 FROM e2ee_key_grants key_grant
         JOIN e2ee_key_devices device ON device.device_id=key_grant.device_id
        WHERE key_grant.generation_id=$1 AND key_grant.identity_id=$2 AND key_grant.status=$3
          AND device.status='active'
+         AND device.device_id=$4
        LIMIT 1
        FOR SHARE OF key_grant,device`,
-      [generationId, actorIdentityId, status],
+      [generationId, actorIdentityId, status, deviceId],
     );
     if (result.rowCount !== 1) {
       throw new KeyLifecycleError(

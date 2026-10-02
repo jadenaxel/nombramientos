@@ -10,6 +10,8 @@ import {
   type WritableSecretProvider,
 } from "@nombramientos/database";
 import type { FastifyInstance } from "fastify";
+import { exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
+import { generateCustodianKeyPair, exportCustodianPublicKey, openDeviceSessionChallenge, type DeviceSessionEncryptedChallenge, type CustodianPrivateKey } from "@nombramientos/e2ee";
 import { Pool, type PoolConfig } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parseApiConfig } from "../src/config.js";
@@ -193,8 +195,15 @@ live("AC-08 live encrypted member import", () => {
     current.idempotencyKeys.push(replayKey);
     expect(replayed.statusCode).toBe(200);
     expect(replayed.json<{ data: ImportSummary }>().data).toMatchObject({ created: 1, updated: 1, skipped: 1, replayed: true });
+    const completedPreviewKey = randomUUID();
+    const completedPreview = await requestImport(current, "/v1/members/import/preview", payload, completedPreviewKey);
+    current.idempotencyKeys.push(completedPreviewKey);
+    expect(completedPreview.statusCode, completedPreview.body).toBe(201);
+    expect(completedPreview.json<{ data: ImportPreview }>().data).toMatchObject({ importId: refreshedData.importId, state: "completed" });
+    const once = await current.tenant.query<{ count: number }>("SELECT count(*)::int count FROM members WHERE id=$1", [current.createdMemberId]);
+    expect(once.rows[0]?.count).toBe(1);
 
-    const history = await current.app.inject({
+    const history = await signedFixtureRequest(current, {
       method: "GET",
       url: "/v1/members/imports?limit=10",
       headers: {
@@ -260,14 +269,14 @@ live("AC-08 live encrypted member import", () => {
     );
     expect(storedContact.rows.length).toBeGreaterThan(0);
 
-    const restricted = await current.app.inject({ method: "GET", url: "/v1/members?limit=25", headers: readerHeaders });
+    const restricted = await signedFixtureRequest(current, { method: "GET", url: "/v1/members?limit=25", headers: readerHeaders }, true);
     expect(restricted.statusCode, restricted.body).toBe(200);
     expect(restricted.json<{ data: { items: Array<Record<string, unknown>> } }>().data.items.length).toBeGreaterThan(0);
     expect(restricted.body).toContain("displayEnvelope");
     expect(restricted.body).not.toContain("contactEnvelope");
     for (const { ciphertext } of storedContact.rows) expect(restricted.body).not.toContain(ciphertext);
 
-    const authorized = await current.app.inject({
+    const authorized = await signedFixtureRequest(current, {
       method: "GET",
       url: "/v1/members?limit=25",
       headers: {
@@ -280,7 +289,7 @@ live("AC-08 live encrypted member import", () => {
     expect(authorized.body).toContain("contactEnvelope");
     for (const { ciphertext } of storedContact.rows) expect(authorized.body).toContain(ciphertext);
 
-    const exportDenied = await current.app.inject({
+    const exportDenied = await signedFixtureRequest(current, {
       method: "POST",
       url: "/v1/members/export-authorizations",
       headers: {
@@ -295,7 +304,7 @@ live("AC-08 live encrypted member import", () => {
         filters: { status: "all", queryApplied: false },
         selectionSha256: `sha256:${"a".repeat(64)}`,
       },
-    });
+    }, true);
     expect(exportDenied.statusCode, exportDenied.body).toBe(403);
     expect(exportDenied.body).not.toContain("contactEnvelope");
     for (const { ciphertext } of storedContact.rows) expect(exportDenied.body).not.toContain(ciphertext);
@@ -314,6 +323,63 @@ live("AC-08 live encrypted member import", () => {
     )).rejects.toMatchObject({ code: "23514" });
     const migration = await current.tenant.query("SELECT 1 FROM schema_migrations WHERE name='025_member_contact_boundary.sql'");
     expect(migration.rowCount).toBe(1);
+  }, 30_000);
+
+  it("prunes only expired proof metadata under runtime insertion without granting DELETE or EXECUTE", async () => {
+    const current = requireFixture(fixture);
+    const device = await current.tenant.query<{ device_id: string }>(
+      "SELECT device_id FROM e2ee_http_session_bindings WHERE session_id=$1", [current.sessionId]);
+    const beforeValid = await current.tenant.query<{ count: number }>(
+      "SELECT count(*)::int count FROM e2ee_http_challenges WHERE expires_at>clock_timestamp()");
+    // A statement removes at most500 expired entries, even when more exist.
+    await current.tenant.query(`INSERT INTO e2ee_http_challenges(id,identity_id,session_id,device_id,purpose,context,expires_at)
+      SELECT gen_random_uuid(),$1,$2,$3,'request','{}'::jsonb,clock_timestamp()-interval '1 minute' FROM generate_series(1,601)`,
+      [current.identityId,current.sessionId,device.rows[0]!.device_id]);
+    const remaining = await current.tenant.query<{ count: number }>(
+      "SELECT count(*)::int count FROM e2ee_http_challenges WHERE expires_at<=clock_timestamp()");
+    expect(remaining.rows[0]?.count).toBe(101);
+    // The real runtime role inserts one nonce; the tightly scoped owner
+    // trigger cleans up the remaining expired metadata, not valid requests.
+    const nonce = await current.app.inject({ method: "POST", url: "/v1/device-session/proofs", headers: {
+      origin: ORIGIN, "user-agent": USER_AGENT, cookie: `nom_session=${current.sessionToken}; nom_csrf=${current.csrfToken}`,
+      "x-csrf-token": current.csrfToken,
+    }, payload: { method: "GET", path: "/v1/members?limit=25", bodyHash: `sha256:${sha256("")}` } });
+    expect(nonce.statusCode, nonce.body).toBe(201);
+    const counts = await current.tenant.query<{ expired: number; valid: number }>(`SELECT
+      count(*) FILTER(WHERE expires_at<=clock_timestamp())::int expired,
+      count(*) FILTER(WHERE expires_at>clock_timestamp())::int valid FROM e2ee_http_challenges`);
+    expect(counts.rows[0]).toEqual({ expired: 0, valid: beforeValid.rows[0]!.count + 1 });
+    const privileges = await current.tenant.query<{ can_delete: boolean; can_execute: boolean; hardened: boolean }>(`SELECT
+      has_table_privilege($1,'e2ee_http_challenges','DELETE') can_delete,
+      has_function_privilege($1,'prune_expired_e2ee_http_challenges()','EXECUTE') can_execute,
+      (SELECT prosecdef AND proconfig=ARRAY['search_path=pg_catalog'] FROM pg_proc WHERE oid='prune_expired_e2ee_http_challenges()'::regprocedure) hardened`,
+      [current.runtimeRole]);
+    expect(privileges.rows[0]).toEqual({ can_delete: false, can_execute: false, hardened: true });
+  }, 30_000);
+
+  it("shows exact own browser labels without exposing another identity's tenant-local bindings", async () => {
+    const current = requireFixture(fixture);
+    const manager = await signedFixtureRequest(current, { method: "GET", url: "/v1/auth/sessions", headers: {
+      origin: ORIGIN, "user-agent": USER_AGENT, cookie: `nom_session=${current.sessionToken}; nom_csrf=${current.csrfToken}`,
+    } });
+    expect(manager.statusCode, manager.body).toBe(200);
+    expect(manager.json().data.items).toEqual([expect.objectContaining({ id: current.sessionId, current: true,
+      deviceLabel: "AC-08 import device" })]);
+    expect(manager.body).not.toContain("AC-08 reader device");
+    const reader = await signedFixtureRequest(current, { method: "GET", url: "/v1/auth/sessions", headers: {
+      origin: ORIGIN, "user-agent": USER_AGENT, cookie: `nom_session=${current.readerSessionToken}; nom_csrf=${current.readerCsrfToken}`,
+    } }, true);
+    expect(reader.statusCode, reader.body).toBe(200);
+    expect(reader.json().data.items).toEqual([expect.objectContaining({ current: true, deviceLabel: "AC-08 reader device" })]);
+    expect(reader.body).not.toContain("AC-08 import device");
+    const allBindings = await current.tenant.query<{ session_id: string }>("SELECT session_id FROM e2ee_http_session_bindings");
+    const principal = await current.database.getPrincipal(sha256(current.sessionToken), randomUUID(), {
+      userAgentHash: sha256(USER_AGENT), ipPrefixHash: sha256("127.0.0"),
+    });
+    expect(principal).not.toBeNull();
+    const labels = await current.database.withDeviceSessionPrincipal(principal!, randomUUID(),
+      (store) => store.getOwnSessionLabels(current.identityId, allBindings.rows.map((row) => row.session_id)));
+    expect([...labels]).toEqual([[current.sessionId, "AC-08 import device"]]);
   }, 30_000);
 });
 
@@ -353,6 +419,8 @@ interface ImportFixture {
   readonly readerIdentityId: string;
   readonly readerSessionToken: string;
   readonly readerCsrfToken: string;
+  readonly signer: { privateKey: CryptoKey; publicJwk: JWK };
+  readonly readerSigner: { privateKey: CryptoKey; publicJwk: JWK };
   readonly contentKey: Buffer;
   readonly tenantKeyId: string;
   readonly updatedMemberId: string;
@@ -461,12 +529,19 @@ async function createFixture(databaseAdminUrl: string): Promise<ImportFixture> {
       [readerIdentityId],
     );
     const keyDeviceId = randomUUID();
+    const readerKeyDeviceId = randomUUID();
+    const wrappingKey = await generateCustodianKeyPair(`tenant:${tenantId}:device:${keyDeviceId}`);
+    const readerWrappingKey = await generateCustodianKeyPair(`tenant:${tenantId}:device:${readerKeyDeviceId}`);
+    const wrappingPublicKey = await exportCustodianPublicKey(wrappingKey);
+    const readerWrappingPublicKey = await exportCustodianPublicKey(readerWrappingKey);
     const keyGenerationId = randomUUID();
     await tenant.query(
       `INSERT INTO e2ee_key_devices(
          device_id,identity_id,label,wrapping_public_key,wrapping_key_fingerprint,status,activated_at
-       ) VALUES ($1,$2,'AC-08 import device','{}'::jsonb,$3,'active',clock_timestamp())`,
-      [keyDeviceId, identityId, `sha256:${randomBytes(32).toString("hex")}`],
+       ) VALUES ($1,$2,'AC-08 import device',$3,$4,'active',clock_timestamp()),
+                ($5,$6,'AC-08 reader device',$7,$8,'active',clock_timestamp())`,
+      [keyDeviceId, identityId, wrappingPublicKey, wrappingPublicKey.fingerprint,
+       readerKeyDeviceId, readerIdentityId, readerWrappingPublicKey, readerWrappingPublicKey.fingerprint],
     );
     await tenant.query(
       `INSERT INTO e2ee_key_generations(
@@ -479,6 +554,12 @@ async function createFixture(databaseAdminUrl: string): Promise<ImportFixture> {
          generation_id,identity_id,device_id,envelope,envelope_hash,grant_kind,status,granted_by_identity_id
        ) VALUES ($1,$2,$3,'{}'::jsonb,$4,'initial','active',$2)`,
       [keyGenerationId, identityId, keyDeviceId, `sha256:${randomBytes(32).toString("hex")}`],
+    );
+    await tenant.query(
+      `INSERT INTO e2ee_key_grants(
+         generation_id,identity_id,device_id,envelope,envelope_hash,grant_kind,status,granted_by_identity_id
+       ) VALUES ($1,$2,$3,'{}'::jsonb,$4,'admin_approved','active',$5)`,
+      [keyGenerationId, readerIdentityId, readerKeyDeviceId, `sha256:${randomBytes(32).toString("hex")}`, identityId],
     );
     await control.query(
       `INSERT INTO auth_sessions(
@@ -551,6 +632,8 @@ async function createFixture(databaseAdminUrl: string): Promise<ImportFixture> {
       tenantPoolIdleMs: 5_000,
     });
     app = await buildServer({ config, database, logger: false, closeDatabaseOnShutdown: false });
+    const signer = await enrollFixtureDevice(app, sessionToken, csrfToken, keyDeviceId, wrappingKey);
+    const readerSigner = await enrollFixtureDevice(app, readerSessionToken, readerCsrfToken, readerKeyDeviceId, readerWrappingKey);
     await provisioner.close();
     provisionerClosed = true;
     return {
@@ -571,6 +654,8 @@ async function createFixture(databaseAdminUrl: string): Promise<ImportFixture> {
       readerIdentityId,
       readerSessionToken,
       readerCsrfToken,
+      signer,
+      readerSigner,
       contentKey,
       tenantKeyId,
       updatedMemberId,
@@ -747,7 +832,7 @@ function assertImportEphemeralNames(
 }
 
 async function requestImport(fixture: ImportFixture, url: string, payload: unknown, idempotencyKey: string) {
-  const response = await fixture.app.inject({
+  const response = await signedFixtureRequest(fixture, {
     method: "POST",
     url,
     headers: {
@@ -761,6 +846,48 @@ async function requestImport(fixture: ImportFixture, url: string, payload: unkno
     payload: JSON.stringify(payload),
   });
   return response;
+}
+
+async function enrollFixtureDevice(app: FastifyInstance, token: string, csrf: string, deviceId: string, wrappingKey: CustodianPrivateKey) {
+  const pair = await generateKeyPair("ES256", { extractable: false });
+  const exported = await exportJWK(pair.publicKey);
+  const publicJwk: JWK = { kty: exported.kty!, crv: exported.crv!, x: exported.x!, y: exported.y! };
+  const headers = { origin: ORIGIN, "user-agent": USER_AGENT, cookie: `nom_session=${token}; nom_csrf=${csrf}`, "x-csrf-token": csrf };
+  const challengeResponse = await app.inject({ method: "POST", url: "/v1/device-session/enrollment/challenge", headers, payload: { deviceId, publicJwk } });
+  expect(challengeResponse.statusCode, challengeResponse.body).toBe(201);
+  const challenge = challengeResponse.json<{ data: DeviceSessionEncryptedChallenge & {issuedAt:number} }>().data;
+  expect(Number.isSafeInteger(challenge.issuedAt)).toBe(true);
+  expect(Date.parse(challenge.context.expiresAt)-challenge.issuedAt*1000).toBeGreaterThanOrEqual(120_000);
+  const secret = await openDeviceSessionChallenge({ recipient: wrappingKey, challenge, expected: challenge.context, nowMs:challenge.issuedAt*1000 });
+  try {
+    const proof = await new SignJWT({ purpose: "nombramientos.device-session-enrollment", challengeId: challenge.context.challengeId, context: challenge.context })
+      .setIssuedAt(challenge.issuedAt).setProtectedHeader({ alg: "ES256", typ: "dpop+jwt", jwk: publicJwk }).sign(pair.privateKey);
+    const complete = await app.inject({ method: "POST", url: "/v1/device-session/enrollment/complete", headers,
+      payload: { challengeId: challenge.context.challengeId, secret: Buffer.from(secret).toString("base64url"), proof } });
+    expect(complete.statusCode, complete.body).toBe(201);
+  } finally { secret.fill(0); }
+  return { privateKey: pair.privateKey, publicJwk };
+}
+
+async function signedFixtureRequest(fixture: ImportFixture, options: {
+  method: "GET" | "POST"; url: string; headers: Record<string,string>; payload?: unknown;
+}, reader = false) {
+  const body = options.payload === undefined ? "" : typeof options.payload === "string" ? options.payload : JSON.stringify(options.payload);
+  const csrf = reader ? fixture.readerCsrfToken : fixture.csrfToken;
+  const nonceResponse = await fixture.app.inject({ method: "POST", url: "/v1/device-session/proofs",
+    headers: { ...options.headers, "x-csrf-token": csrf }, payload: {
+      method: options.method, path: options.url, bodyHash: `sha256:${sha256(body)}`, idempotencyKey: options.headers["idempotency-key"] ?? "",
+    } });
+  expect(nonceResponse.statusCode, nonceResponse.body).toBe(201);
+  const { claims,issuedAt } = nonceResponse.json<{ data: { claims: Record<string,unknown>;issuedAt:number } }>().data;
+  expect(issuedAt).toBe(claims["iat"]);
+  const signer = reader ? fixture.readerSigner : fixture.signer;
+  const proof = await new SignJWT(claims).setProtectedHeader({ alg: "ES256", typ: "dpop+jwt", jwk: signer.publicJwk }).sign(signer.privateKey);
+  const requestOptions = { method: options.method, url: options.url };
+  return fixture.app.inject({ ...requestOptions, headers: { ...options.headers, "x-device-proof": proof,
+    ...(options.payload === undefined ? {} : { "content-type": "application/json" }) },
+    ...(options.payload === undefined ? {} : { payload: body }),
+  });
 }
 
 function sealDisplay(fixture: ImportFixture, memberId: string, display: Readonly<Record<string, unknown>>): EncryptedEnvelope {

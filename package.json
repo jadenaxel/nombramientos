@@ -34,6 +34,7 @@
     "db:migrate": "pnpm --filter @nombramientos/database db:migrate:control",
     "db:grants:tenant": "pnpm --filter @nombramientos/database db:grants:tenant",
     "db:provision": "pnpm --filter @nombramientos/database db:provision",
+    "db:sync:gestionchurch": "pnpm --filter @nombramientos/database db:sync:gestionchurch",
     "db:seed:demo": "pnpm --filter @nombramientos/database db:seed:demo",
     "db:bootstrap:platform-admin": "pnpm --filter @nombramientos/database db:bootstrap:platform-admin",
     "dev:api": "pnpm --filter @nombramientos/api dev",

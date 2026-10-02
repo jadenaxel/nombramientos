@@ -7,6 +7,7 @@ const webRoot = path.resolve(import.meta.dirname, "..");
 const preferenceSource = readFileSync(path.join(webRoot, "components/nombramientos/accessibility-preferences.tsx"), "utf8");
 const providerSource = readFileSync(path.join(webRoot, "app/providers.tsx"), "utf8");
 const cssSource = readFileSync(path.join(webRoot, "app/globals.css"), "utf8");
+const responsiveSource = readFileSync(path.join(webRoot, "app/responsive.css"), "utf8");
 const serviceWorkerSource = readFileSync(path.join(webRoot, "public/sw.js"), "utf8");
 const loginSource = readFileSync(path.join(webRoot, "components/nombramientos/login-form.tsx"), "utf8");
 const invitationSource = readFileSync(path.join(webRoot, "components/nombramientos/invitation-accept-form.tsx"), "utf8");
@@ -43,6 +44,35 @@ function relativeLuminance(hex: string) {
   assert.equal(channels?.length, 3, `invalid hex color: ${hex}`);
   return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
 }
+
+test("el diseño compartido refluye por ancho útil sin ocultar información fuera de la pantalla", () => {
+  assert.match(responsiveSource, /container-name: nominations-workspace/);
+  assert.match(responsiveSource, /@container nominations-workspace/);
+  assert.match(responsiveSource, /minmax\(0,1fr\)/);
+  assert.match(responsiveSource, /\[data-slot=table-container\]/);
+  assert.doesNotMatch(responsiveSource, /(?:html|body)\s*\{[^}]*overflow-x:\s*hidden/);
+});
+
+test("diálogos y campos móviles respetan viewport dinámico, áreas seguras y objetivos táctiles", () => {
+  assert.match(responsiveSource, /100dvh/);
+  assert.match(responsiveSource, /env\(safe-area-inset-bottom\)/);
+  assert.match(responsiveSource, /font-size: max\(16px,1rem\)/);
+  assert.match(responsiveSource, /min-height: 44px/);
+  const alertDialog = readFileSync(path.join(webRoot, "components/ui/alert-dialog.tsx"), "utf8");
+  assert.match(alertDialog, /max-h-\[calc\(100dvh-2rem\)\]/);
+  assert.match(alertDialog, /overflow-y-auto/);
+});
+
+test("el inicio protegido pasa a una columna y el perfil conserva un nombre accesible", () => {
+  const workflowSource = readFileSync(path.join(webRoot, "components/nombramientos/workflow-console.tsx"), "utf8");
+  assert.match(workflowSource, /flex flex-col items-start gap-4 sm:flex-row/);
+  assert.match(workflowSource, /ref=\{startButtonRef\}/);
+  assert.match(workflowSource, /onCloseAutoFocus=\{\(event\) => \{ event\.preventDefault\(\); startButtonRef\.current\?\.focus\(\)/);
+  assert.match(responsiveSource, /\.unlock-card \{ grid-template-columns: minmax\(0,1fr\)/);
+  assert.match(responsiveSource, /\.page-wrap \[data-slot=badge\] \{ max-width: 100%; white-space: normal/);
+  assert.match(appShellSource, /className="profile-trigger" aria-label=\{session.user.displayName/);
+  assert.match(responsiveSource, /\.session-stats div:last-child \{ display: block/);
+});
 
 function contrastRatio(first: string, second: string) {
   const firstLuminance = relativeLuminance(first);

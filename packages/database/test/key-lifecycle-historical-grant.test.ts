@@ -34,7 +34,7 @@ describe("historical tenant-key grant delegation", () => {
     expect(first.retiredAt).not.toBeNull();
 
     const actorGuard = fixture.query.mock.calls.find(([sql]) => String(sql).includes("key_grant.status=$3"));
-    expect(actorGuard?.[1]).toEqual([retiredGenerationId, actorIdentityId, "retired"]);
+    expect(actorGuard?.[1]).toEqual([retiredGenerationId, actorIdentityId, "retired", actorDeviceId]);
     expect(String(actorGuard?.[0])).toMatch(/FOR SHARE OF key_grant,device/u);
 
     const targetGuard = fixture.query.mock.calls.find(([sql]) => String(sql).includes("requireTargetCurrentGrant")
@@ -57,17 +57,17 @@ describe("historical tenant-key grant delegation", () => {
   it.each([
     {
       name: "an actor without the exact retired grant",
-      configure: (fixture: FixtureState) => { fixture.grants = fixture.grants.filter((grant) => grant.identityId !== actorIdentityId); },
+      configure: (fixture: FixtureState) => { fixture.grants = fixture.grants.filter((grant) => grant.identityId !== actorIdentityId || grant.status !== "retired"); },
       expected: { statusCode: 403, code: "AUTHORIZED_ADMIN_GRANT_REQUIRED" },
     },
     {
       name: "an actor whose historical device was revoked",
       configure: (fixture: FixtureState) => { fixture.devices.get(actorDeviceId)!.status = "revoked"; },
-      expected: { statusCode: 403, code: "AUTHORIZED_ADMIN_GRANT_REQUIRED" },
+      expected: { code: "DEVICE_SESSION_REVOKED" },
     },
     {
       name: "an active target without a current-generation grant",
-      configure: (fixture: FixtureState) => { fixture.grants = fixture.grants.filter((grant) => grant.generationId !== currentGenerationId); },
+      configure: (fixture: FixtureState) => { fixture.grants = fixture.grants.filter((grant) => grant.generationId !== currentGenerationId || grant.identityId !== targetIdentityId); },
       expected: { statusCode: 409, code: "CURRENT_KEY_GRANT_REQUIRED" },
     },
     {
@@ -165,6 +165,7 @@ function lifecycleFixture(): FixtureState & {
     ]),
     grants: [
       { generationId: retiredGenerationId, identityId: actorIdentityId, deviceId: actorDeviceId, status: "retired" },
+      { generationId: currentGenerationId, identityId: actorIdentityId, deviceId: actorDeviceId, status: "active" },
       { generationId: currentGenerationId, identityId: targetIdentityId, deviceId: targetDeviceId, status: "active" },
     ],
   };
@@ -174,6 +175,19 @@ function lifecycleFixture(): FixtureState & {
   const query = vi.fn(async (sqlValue: string, parametersValue?: readonly unknown[]) => {
     const sql = String(sqlValue);
     const parameters = parametersValue ?? [];
+    if (sql.includes("current_setting('app.proven_device_id'")) return rows([{ device_id: actorDeviceId, session_id: sessionId }]);
+    if (sql.startsWith("SELECT device_id FROM e2ee_key_devices")) {
+      const device = state.devices.get(String(parameters[0]));
+      return rows(device && device.identityId === parameters[1] && device.status !== "revoked" ? [{ device_id: device.deviceId }] : []);
+    }
+    if (sql.includes("SELECT binding.session_id FROM e2ee_http_session_bindings")) {
+      const device = state.devices.get(actorDeviceId);
+      const current = [...state.generations.values()].find((generation) => generation.status === "active");
+      const grant = current && state.grants.some((entry) => entry.generationId === current.id && entry.identityId === actorIdentityId
+        && entry.deviceId === actorDeviceId && entry.status === "active");
+      return rows(parameters[0] === sessionId && parameters[1] === actorIdentityId && parameters[2] === actorDeviceId
+        && device?.status === "active" && grant ? [{ session_id: sessionId }] : []);
+    }
     if (sql.includes("INSERT INTO idempotency_records")) {
       const key = String(parameters[2]);
       if (idempotency.has(key)) return rows([]);
@@ -196,9 +210,10 @@ function lifecycleFixture(): FixtureState & {
       return rows(generation ? [generationRow(generation)] : []);
     }
     if (sql.includes("SELECT 1 FROM e2ee_key_grants key_grant")) {
-      const [generationId, identityId, status] = parameters.map(String);
+      const [generationId, identityId, status, deviceId] = parameters.map(String);
       const match = state.grants.find((grant) => grant.generationId === generationId
         && grant.identityId === identityId
+        && grant.deviceId === deviceId
         && grant.status === status
         && state.devices.get(grant.deviceId)?.status === "active");
       return rows(match ? [{}] : []);

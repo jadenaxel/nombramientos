@@ -27,6 +27,12 @@ type OpenApiDocument = {
   };
 };
 
+type OpenApiObjectSchema = {
+  readonly required?: readonly string[];
+  readonly allOf?: readonly unknown[];
+  readonly properties: Readonly<Record<string, { readonly enum?: readonly string[]; readonly pattern?: string }>>;
+};
+
 describe("OpenAPI contract", () => {
   const document = JSON.parse(readFileSync(contractPath, "utf8")) as OpenApiDocument;
 
@@ -86,6 +92,35 @@ describe("OpenAPI contract", () => {
       pattern: "^[A-Z][A-Z0-9_]{2,127}$",
     });
     expect(document.components?.schemas?.["EncryptedEnvelope"]).toBeTruthy();
+  });
+
+  it("documents device proof and server-clock fields without implying grants or OAuth DPoP certification", () => {
+    expect(document.components?.securitySchemes?.["deviceProof"]).toMatchObject({ type: "apiKey", in: "header", name: "x-device-proof" });
+    expect(document.components?.schemas?.["DeviceSessionBinding"]).toMatchObject({ required: expect.arrayContaining(["sourceSessionId", "deviceStatus", "hasActiveGrant"]) });
+    for (const schema of ["DeviceEnrollmentChallengeResponse", "DeviceRequestNonceResponse"]) {
+      expect(document.components?.schemas?.[schema]).toMatchObject({ properties: { data: {
+        required: expect.arrayContaining(["issuedAt"]), properties: { issuedAt: { type: "integer", minimum: 1 } },
+      } } });
+    }
+  });
+
+  it("adds authoritative time and an exact session identifier only to the snapshot without changing the authentication expiry contract", () => {
+    expect(document.paths?.["/v1/session"]?.["get"]).toMatchObject({ responses: { "200": {
+      content: { "application/json": { schema: { $ref: "#/components/schemas/SessionSnapshotResponse" } } },
+    } } });
+    expect(document.components?.schemas?.["SessionSnapshotResponse"]).toMatchObject({ properties: { data: {
+      allOf: expect.arrayContaining([
+        { $ref: "#/components/schemas/AuthenticatedSession" },
+        expect.objectContaining({ required: ["serverTime", "sessionId"], properties: {
+          serverTime: expect.objectContaining({ type: "string", format: "date-time" }),
+          sessionId: expect.objectContaining({ type: "string", format: "uuid" }),
+        } }),
+      ]),
+    } } });
+    expect(document.components?.schemas?.["AuthenticatedSession"]).toMatchObject({ required: expect.arrayContaining(["expiresAt"]) });
+    const authentication = document.components?.schemas?.["AuthenticatedSession"] as OpenApiObjectSchema;
+    expect(authentication.required).not.toContain("serverTime");
+    expect(authentication.required).not.toContain("sessionId");
   });
 
   it("documents transactional tenant content-key conflicts on every guarded HTTP write", () => {
@@ -615,11 +650,11 @@ describe("OpenAPI contract", () => {
     expect(document.components?.schemas?.["WorkflowSessionDetail"]).toBeTruthy();
     expect(document.components?.schemas?.["WorkflowPhotoSnapshot"]).toBeTruthy();
 
-    const create = document.components?.schemas?.["CycleSessionCreateRequest"] as Record<string, any>;
-    const update = document.components?.schemas?.["SessionUpdateRequest"] as Record<string, any>;
-    const agenda = document.components?.schemas?.["SessionAgendaCreateRequest"] as Record<string, any>;
-    const session = document.components?.schemas?.["WorkflowSessionRecord"] as Record<string, any>;
-    const agendaItem = document.components?.schemas?.["WorkflowSessionAgendaItem"] as Record<string, any>;
+    const create = document.components?.schemas?.["CycleSessionCreateRequest"] as OpenApiObjectSchema;
+    const update = document.components?.schemas?.["SessionUpdateRequest"] as OpenApiObjectSchema;
+    const agenda = document.components?.schemas?.["SessionAgendaCreateRequest"] as OpenApiObjectSchema;
+    const session = document.components?.schemas?.["WorkflowSessionRecord"] as OpenApiObjectSchema;
+    const agendaItem = document.components?.schemas?.["WorkflowSessionAgendaItem"] as OpenApiObjectSchema;
     expect(create).toMatchObject({
       additionalProperties: false,
       required: expect.arrayContaining(["sessionId", "titleEnvelope", "titleContentHash"]),
@@ -629,7 +664,7 @@ describe("OpenAPI contract", () => {
         titleContentHash: { $ref: "#/components/schemas/Sha256Fingerprint" },
       },
     });
-    expect(create["properties"].title).toBeUndefined();
+    expect(create.properties["title"]).toBeUndefined();
     expect(update).toMatchObject({
       dependentRequired: { titleEnvelope: ["titleContentHash"], titleContentHash: ["titleEnvelope"] },
       properties: {
@@ -637,7 +672,7 @@ describe("OpenAPI contract", () => {
         titleContentHash: { $ref: "#/components/schemas/Sha256Fingerprint" },
       },
     });
-    expect(update["properties"].title).toBeUndefined();
+    expect(update.properties["title"]).toBeUndefined();
     expect(agenda).toMatchObject({
       required: expect.arrayContaining(["itemId", "titleEnvelope", "titleContentHash"]),
       properties: {
@@ -646,12 +681,12 @@ describe("OpenAPI contract", () => {
         titleContentHash: { $ref: "#/components/schemas/Sha256Fingerprint" },
       },
     });
-    expect(agenda["properties"].title).toBeUndefined();
+    expect(agenda.properties["title"]).toBeUndefined();
     for (const responseSchema of [session, agendaItem]) {
       expect(responseSchema["required"]).toEqual(expect.arrayContaining(["titleEnvelope", "titleVersion", "legacyTitleUnavailable"]));
-      expect(responseSchema["properties"].title).toBeUndefined();
-      expect(responseSchema["properties"].titleEnvelope).toMatchObject({ oneOf: expect.any(Array) });
-      expect(responseSchema["properties"].titleVersion).toMatchObject({ type: "integer", minimum: 0 });
+      expect(responseSchema.properties["title"]).toBeUndefined();
+      expect(responseSchema.properties["titleEnvelope"]).toMatchObject({ oneOf: expect.any(Array) });
+      expect(responseSchema.properties["titleVersion"]).toMatchObject({ type: "integer", minimum: 0 });
     }
     expect(document.components?.schemas?.["WorkflowReportSnapshot"]).toMatchObject({
       properties: {
@@ -662,7 +697,7 @@ describe("OpenAPI contract", () => {
   });
 
   it("publishes closed non-sensitive reason-code vocabularies and their outcome mappings", () => {
-    const schemas = document.components?.schemas as Record<string, any>;
+    const schemas = document.components?.schemas as Readonly<Record<string, OpenApiObjectSchema>>;
     const vocabulary = new Map<string, readonly string[]>([
       ["InvitationRevokeRequest", ["ADMIN_ACCESS_REVOCATION", "SECURITY_RESPONSE", "INVITATION_REPLACED"]],
       ["MemberArchiveRequest", ["RECORD_LIFECYCLE_CHANGE", "DUPLICATE_RECORD", "ADMINISTRATIVE_CORRECTION", "RETENTION_POLICY"]],
@@ -682,28 +717,28 @@ describe("OpenAPI contract", () => {
       ["SessionDecisionRequest", ["RESOLUTION", "AGREEMENT", "INFORMATION_NOTED", "ITEM_DEFERRED", "ITEM_REJECTED"]],
     ]);
     for (const [schemaName, expected] of vocabulary) {
-      const schema = schemas[schemaName];
+      const schema = schemas[schemaName]!;
       expect(schema, schemaName).toBeTruthy();
-      expect(schema.properties.reason, schemaName).toBeUndefined();
+      expect(schema.properties["reason"], schemaName).toBeUndefined();
       expect(schema.required ?? [], schemaName).not.toContain("reason");
-      const field = schemaName === "SessionDecisionRequest" ? schema.properties.decisionCode : schema.properties.reasonCode;
+      const field = schemaName === "SessionDecisionRequest" ? schema.properties["decisionCode"] : schema.properties["reasonCode"];
       expect(field?.enum, schemaName).toEqual(expected);
       expect(field?.pattern, schemaName).toBeUndefined();
     }
 
-    expect(schemas["EligibilityPauseResolutionRequest"].allOf).toEqual(expect.arrayContaining([
+    expect(schemas["EligibilityPauseResolutionRequest"]!.allOf).toEqual(expect.arrayContaining([
       { if: { properties: { resolutionCode: { const: "ANNUL_AND_RESTART" } } }, then: { properties: { reasonCode: { const: "ELIGIBILITY_ROUND_RESTARTED" } } } },
       { if: { properties: { resolutionCode: { const: "CLOSE_AFTER_REPLACEMENT" } } }, then: { properties: { reasonCode: { const: "ELIGIBILITY_REPLACEMENT_COMPLETED" } } } },
     ]));
-    expect(schemas["CandidacyReviewRequest"].allOf).toEqual(expect.arrayContaining([
+    expect(schemas["CandidacyReviewRequest"]!.allOf).toEqual(expect.arrayContaining([
       { if: { properties: { toState: { const: "UNDER_REVIEW" } } }, then: { properties: { reasonCode: { const: "REVIEW_STARTED" } } } },
       { if: { properties: { toState: { const: "INELIGIBLE" } } }, then: { properties: { reasonCode: { const: "ELIGIBILITY_FAILED" } } } },
     ]));
-    expect(schemas["AssignmentFinalizationRequest"].allOf).toEqual(expect.arrayContaining([
+    expect(schemas["AssignmentFinalizationRequest"]!.allOf).toEqual(expect.arrayContaining([
       { if: { properties: { openVacancy: { const: false } } }, then: { properties: { reasonCode: { const: "TERM_COMPLETED_NO_VACANCY" } } } },
       { if: { properties: { openVacancy: { const: true } } }, then: { properties: { reasonCode: { const: "TERM_COMPLETED_OPEN_VACANCY" } } } },
     ]));
-    expect(schemas["SessionDecisionRequest"].allOf).toEqual(expect.arrayContaining([
+    expect(schemas["SessionDecisionRequest"]!.allOf).toEqual(expect.arrayContaining([
       { if: { properties: { outcome: { const: "APPROVED" } } }, then: { properties: { decisionCode: { enum: ["RESOLUTION", "AGREEMENT"] } } } },
       { if: { properties: { outcome: { const: "RECORDED" } } }, then: { properties: { decisionCode: { enum: ["INFORMATION_NOTED"] } } } },
     ]));
@@ -907,7 +942,7 @@ function discoverLiteralFastifyRoutes(): Set<string> {
   const sourceFiles = [
     path.join(apiRoot, "src", "server.ts"),
     ...readdirSync(moduleDirectory)
-      .filter((filename) => filename.endsWith("-routes.ts"))
+      .filter((filename) => filename.endsWith(".ts"))
       .map((filename) => path.join(moduleDirectory, filename)),
   ];
   const routes = new Set<string>();

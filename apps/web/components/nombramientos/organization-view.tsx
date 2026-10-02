@@ -13,6 +13,7 @@ import {
   Link2,
   LockKeyhole,
   Network,
+  RefreshCw,
   Search,
   ShieldAlert,
   ShieldCheck,
@@ -33,6 +34,7 @@ import { keyForEnvelope, openJsonEnvelope } from "@/lib/historical-envelope";
 import {
   filterOrganizationItems,
   groupOrganizationByDepartment,
+  organizationDirectoryInsights,
   organizationReportQuery,
   organizationTotals,
   organizationWorkload,
@@ -61,6 +63,8 @@ type OrganizationItem = OrganizationRecord & {
   independent?: boolean;
   memberSnapshot?: { displayEnvelope?: Envelope; photo?: StoredPhotoRecord | null } | null;
   photoSnapshot?: StoredPhotoRecord | null;
+  displayName?: string;
+  source?: string;
 };
 type OrganizationResponse = {
   items: OrganizationItem[];
@@ -68,6 +72,10 @@ type OrganizationResponse = {
   selectedCycle?: CycleOption | null;
   cycleName?: string | null;
   stage?: OrganizationStage;
+  source?: "gestionchurch";
+  sourceUpdatedAt?: string | null;
+  generatedAt?: string;
+  directorySummary?: { departments: number; people: number; appointments: number };
 };
 type VisibleAssignment = OrganizationItem & {
   displayName?: string;
@@ -96,9 +104,9 @@ function assignmentName(profile: AssignmentDisplay): string {
 }
 
 function responsibilityKind(item: VisibleAssignment, locale: Locale): string {
-  const code = item.officeCode?.toLocaleLowerCase() ?? "";
+  const code = `${item.officeCode ?? ""} ${item.officeName}`.normalize("NFD").replace(/[\u0300-\u036f]/gu, "").toLocaleLowerCase();
   if (code.includes("secretar")) return message(locale, "screen.organizationView.d75ed4c5d2f7");
-  if (/(leader|director|head|coordinator|pastor|elder|president)/u.test(code)) {
+  if (/(leader|director|head|coordinator|pastor|elder|president|direccion|primer anciano|tesorer|coordinador|responsable)/u.test(code)) {
     return message(locale, "screen.organizationView.12d54a5e8e45");
   }
   return message(locale, "screen.organizationView.ba44ca9183b5");
@@ -121,7 +129,9 @@ function AssignmentCard({
   workload?: ResponsibilitySummary;
   compact?: boolean;
 }) {
-  const status = statusLabels[locale][item.status] ?? item.status;
+  const status = item.source && item.processState === "VIGENTE"
+    ? message(locale, "organization.directoryCurrentBadge")
+    : statusLabels[locale][item.status] ?? item.status;
   const initials = item.displayName
     ? item.displayName.split(/\s+/u).slice(0, 2).map((part) => part[0]).join("").toLocaleUpperCase()
     : "";
@@ -180,14 +190,21 @@ export function OrganizationView({ locale, session }: { locale: Locale; session:
     let cancelled = false;
     const createdUrls: string[] = [];
     async function reveal(): Promise<void> {
-      if (!query.data || !vault.key || !vault.keyId) return;
-      setDecrypting(true);
+      if (!query.data) return;
+      const requiresDecryption = query.data.items.some((item) => Boolean(item.memberId && !item.displayName));
+      if (requiresDecryption && (!vault.key || !vault.keyId)) {
+        setItems([]);
+        setDecryptError(message(locale, "organization.cryptoUnavailable"));
+        return;
+      }
+      setDecrypting(requiresDecryption);
       setDecryptError(undefined);
       try {
         let hadFailures = false;
         const decrypted = await Promise.all(query.data.items.map(async (item): Promise<VisibleAssignment> => {
           const officeName = localizedName(item.officeNames, locale, item.officeName);
           const departmentName = localizedName(item.departmentNames, locale, item.departmentName);
+          if (item.displayName) return { ...item, officeName, departmentName, displayName: item.displayName };
           if (!item.memberId) return { ...item, officeName, departmentName };
           const displayEnvelope = item.memberSnapshot?.displayEnvelope ?? item.displayEnvelope;
           try {
@@ -240,7 +257,7 @@ export function OrganizationView({ locale, session }: { locale: Locale; session:
     };
   }, [locale, query.data, session.tenant.id, vault, vault.key, vault.keyFor, vault.keyringRevision]);
 
-  const securedItems = useMemo(() => vault.key ? items : [], [items, vault.key]);
+  const securedItems = items;
   const departments = useMemo(() => {
     const values = new Map<string, string>();
     for (const item of securedItems) values.set(item.departmentId ?? item.departmentName, item.departmentName);
@@ -250,6 +267,8 @@ export function OrganizationView({ locale, session }: { locale: Locale; session:
   const grouped = useMemo(() => groupOrganizationByDepartment(filtered, locale), [filtered, locale]);
   const workload = useMemo(() => organizationWorkload(securedItems), [securedItems]);
   const totals = useMemo(() => organizationTotals(securedItems), [securedItems]);
+  const directoryInsights = useMemo(() => organizationDirectoryInsights(securedItems), [securedItems]);
+  const directoryMode = query.data?.source === "gestionchurch";
   const selectedCycle = query.data?.selectedCycle ?? query.data?.cycles?.find(({ id }) => id === cycleId);
   const selectedCycleId = cycleId || selectedCycle?.id || "";
   const reportHref = `/${locale}/app/reports?${organizationReportQuery({
@@ -257,22 +276,30 @@ export function OrganizationView({ locale, session }: { locale: Locale; session:
     ...(department !== "all" ? { departmentId: department } : {}),
     stage,
   })}`;
-  const reportAllowed = session.permissions.includes("report.export");
+  const reportAllowed = session.permissions.includes("report.export") && !directoryMode;
   const cycleLabel = selectedCycle?.termStart && selectedCycle.termEnd
     ? `${selectedCycle.name} · ${selectedCycle.termStart}–${selectedCycle.termEnd}`
-    : selectedCycle?.name ?? query.data?.cycleName ?? message(locale, "organization.currentStructure");
+    : selectedCycle?.name ?? query.data?.cycleName ?? (directoryMode ? message(locale, "organization.directoryCurrent") : message(locale, "organization.currentStructure"));
+  const directoryUpdated = query.data?.sourceUpdatedAt
+    ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(query.data.sourceUpdatedAt))
+    : message(locale, "organization.directoryLive");
 
   if (query.isLoading || decrypting) return <LoadingBlock label={message(locale, "organization.loading")} />;
 
   return <>
-    <PageTitle eyebrow={message(locale, "organization.cycleStructure")} title={message(locale, "organization.title")} description={message(locale, "organization.description", { cycle: cycleLabel })} />
+    <PageTitle eyebrow={message(locale, "organization.cycleStructure")} title={message(locale, "organization.title")} description={directoryMode ? message(locale, "organization.directoryDescription", { tenant: session.tenant.name }) : message(locale, "organization.description", { cycle: cycleLabel })} />
+    {directoryMode && <section className="org-directory-source" aria-label={message(locale, "organization.directoryEyebrow")}>
+      <span className="org-source-icon" aria-hidden="true"><ShieldCheck /></span>
+      <div className="org-source-copy"><small>{message(locale, "organization.directoryEyebrow")}</small><h2>{message(locale, "organization.directoryTitle")}</h2><p>{message(locale, "organization.directoryBody", { appointments: directoryInsights.appointments, people: directoryInsights.people, departments: directoryInsights.departments })}</p></div>
+      <div className="org-source-status"><Badge><ShieldCheck />{message(locale, "organization.directoryPrivate")}</Badge><Badge variant="outline"><RefreshCw />{message(locale, "organization.directoryLive")}</Badge><small>{message(locale, "organization.directoryUpdated", { date: directoryUpdated })}</small></div>
+    </section>}
     {session.tenant.kind === "demo" && <Alert className="demo-notice"><ShieldCheck /><AlertTitle>{message(locale, "organization.demoTitle")}</AlertTitle><AlertDescription>{message(locale, "organization.demoHelp")}</AlertDescription></Alert>}
     <section className="org-command surface-card" aria-label={message(locale, "screen.organizationView.c7703fb3fd56")}>
-      <div className="org-stage-switch" role="group" aria-label={message(locale, "screen.organizationView.b78e16e87299")}>
+      {!directoryMode && <div className="org-stage-switch" role="group" aria-label={message(locale, "screen.organizationView.b78e16e87299")}>
         {(["proposal", "elected"] as const).map((value) => <Button key={value} type="button" variant={stage === value ? "default" : "outline"} aria-pressed={stage === value} onClick={() => { setStage(value); setStatus("all"); }}>{stageLabel(value, locale)}</Button>)}
-      </div>
+      </div>}
       <div className="org-filter-grid">
-        <div><Label htmlFor="organization-cycle">{message(locale, "screen.organizationView.4b2b2c08346d")}</Label><select id="organization-cycle" value={selectedCycleId} onChange={(event) => { setCycleId(event.target.value); setDepartment("all"); }} disabled={!query.data?.cycles?.length}>{query.data?.cycles?.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.name}{cycle.termStart && cycle.termEnd ? ` · ${cycle.termStart}–${cycle.termEnd}` : ""}</option>)}</select></div>
+        <div><Label htmlFor="organization-cycle">{message(locale, "screen.organizationView.4b2b2c08346d")}</Label><select id="organization-cycle" value={directoryMode ? "directory" : selectedCycleId} onChange={(event) => { setCycleId(event.target.value); setDepartment("all"); }} disabled={directoryMode || !query.data?.cycles?.length}>{directoryMode ? <option value="directory">{message(locale, "organization.directoryCurrent")}</option> : query.data?.cycles?.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.name}{cycle.termStart && cycle.termEnd ? ` · ${cycle.termStart}–${cycle.termEnd}` : ""}</option>)}</select></div>
         <div><Label htmlFor="organization-department">{message(locale, "screen.organizationView.a9c1f5f4089f")}</Label><select id="organization-department" value={department} onChange={(event) => setDepartment(event.target.value)}><option value="all">{message(locale, "screen.organizationView.62545aee4d81")}</option>{departments.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></div>
         <div><Label htmlFor="organization-status">{message(locale, "screen.organizationView.06977bde9342")}</Label><select id="organization-status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">{message(locale, "screen.organizationView.45e32915a439")}</option>{Object.entries(statusLabels[locale]).filter(([value]) => value !== "not_configured").map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
         <div className="org-search"><Label htmlFor="organization-search">{message(locale, "screen.organizationView.f8d4ca1ef03f")}</Label><span><Search aria-hidden="true" /><Input id="organization-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} /></span></div>
@@ -282,16 +309,24 @@ export function OrganizationView({ locale, session }: { locale: Locale; session:
         {layout === "graph" && <div role="group" aria-label={message(locale, "screen.organizationView.fea75bb73c5a")}><Button type="button" size="icon-sm" variant="outline" aria-label={message(locale, "screen.organizationView.9d71eda15776")} disabled={zoom <= 75} onClick={() => setZoom((value) => Math.max(75, value - 25))}><ZoomOut /></Button><output aria-live="polite">{zoom}%</output><Button type="button" size="icon-sm" variant="outline" aria-label={message(locale, "screen.organizationView.81aa10b9ff7d")} disabled={zoom >= 150} onClick={() => setZoom((value) => Math.min(150, value + 25))}><ZoomIn /></Button></div>}
         {reportAllowed && <Button asChild variant="outline"><Link href={reportHref}><Download />{message(locale, "screen.organizationView.8c764577936a")}</Link></Button>}
       </div>
-      <p className="org-stage-note"><strong>{stageLabel(stage, locale)}.</strong> {stage === "proposal" ? message(locale, "screen.organizationView.c959516274b4") : message(locale, "screen.organizationView.ba7fa049e219")}</p>
+      <p className="org-stage-note"><strong>{directoryMode ? message(locale, "organization.directoryCurrent") : stageLabel(stage, locale)}.</strong> {directoryMode ? message(locale, "organization.directorySource") : stage === "proposal" ? message(locale, "screen.organizationView.c959516274b4") : message(locale, "screen.organizationView.ba7fa049e219")}</p>
     </section>
     {query.isError ? <Alert variant="destructive"><Network /><AlertTitle>{message(locale, "organization.loadFailure")}</AlertTitle><AlertDescription>{message(locale, "screen.organizationView.7936df30306d")}</AlertDescription></Alert> : securedItems.length === 0 ? <section className="surface-card"><EmptyState locale={locale} icon={Network} title={message(locale, "organization.empty")} /></section> : <>
       {decryptError ? <Alert variant="destructive"><LockKeyhole /><AlertTitle>{message(locale, "organization.cryptoUnavailable")}</AlertTitle><AlertDescription>{decryptError}</AlertDescription></Alert> : null}
-      <section className="org-overview">
+      <section className={`org-overview${directoryMode ? " directory" : ""}`}>
+        {directoryMode ? <>
+          <div><span><Building2 /></span><p>{message(locale, "organization.departments")}</p><strong>{directoryInsights.departments}</strong><small>{message(locale, "organization.directoryOfficial")}</small></div>
+          <div><span><UsersRound /></span><p>{message(locale, "organization.uniquePeople")}</p><strong>{directoryInsights.people}</strong><small>{message(locale, "organization.directoryOfficial")}</small></div>
+          <div><span><CheckCircle2 /></span><p>{message(locale, "organization.appointments")}</p><strong>{directoryInsights.appointments}</strong><small>{message(locale, "organization.directoryOfficial")}</small></div>
+          <div><span><ShieldCheck /></span><p>{message(locale, "organization.leadership")}</p><strong>{directoryInsights.leadership}</strong><small>{message(locale, "organization.directoryLeadershipHelp")}</small></div>
+          <div><span><Link2 /></span><p>{message(locale, "organization.multiRolePeople")}</p><strong>{directoryInsights.multiRolePeople}</strong><small>{message(locale, "organization.directoryMultiRoleHelp")}</small></div>
+        </> : <>
         <div><span><Building2 /></span><p>{message(locale, "organization.structure")}</p><strong>{totals.total}</strong><small>{message(locale, "organization.applicableResponsibilities")}</small></div>
         <div><span><UserRound /></span><p>{message(locale, "organization.withPerson")}</p><strong>{totals.occupied}</strong><small>{stageLabel(stage, locale)}</small></div>
         <div><span><CheckCircle2 /></span><p>{stage === "elected" ? message(locale, "organization.electionRecorded") : message(locale, "screen.organizationView.5fde22234e8c")}</p><strong>{stage === "elected" ? totals.elected : totals.recommended}</strong><small>{message(locale, "organization.electionDifferentiated")}</small></div>
         <div><span><UsersRound /></span><p>{message(locale, "screen.organizationView.5a86da5ba888")}</p><strong>{totals.independent}</strong><small>{message(locale, "screen.organizationView.279be1c1739e")}</small></div>
         <div><span><Link2 /></span><p>{message(locale, "screen.organizationView.5d762c6326d6")}</p><strong>{totals.linked}</strong><small>{message(locale, "screen.organizationView.e0e1caa811e5")}</small></div>
+        </>}
       </section>
       <p className="sr-only" aria-live="polite">{message(locale, "screen.organizationView.36f4fb078971", { value0: filtered.length })}</p>
       {filtered.length === 0 ? <section className="surface-card"><EmptyState locale={locale} icon={Search} title={message(locale, "screen.organizationView.63d7859af2a5")} /></section> : layout === "graph" ? <div className="org-zoom-viewport"><section className="org-tree" aria-label={message(locale, "organization.byDepartmentAria")} style={{ zoom: `${zoom}%` }}>

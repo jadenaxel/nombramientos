@@ -20,6 +20,10 @@ export function hasSessionContextRisk(principal: RequestPrincipal): boolean {
 }
 
 export function assertMfaAssurance(principal: RequestPrincipal, purpose: string): void {
+  // GestionChurch is the identity provider for federated module sessions. The
+  // suite-wide MFA policy will be enforced there when it is enabled; the
+  // embedded module must not demand a second, local factor in the meantime.
+  if (principal.authMethod === "federated") return;
   const strongAuthenticator = principal.authMethod === "passkey"
     ? principal.phishingResistant === true
     : principal.mfaEnabled;
@@ -35,6 +39,7 @@ export function assertMfaAssurance(principal: RequestPrincipal, purpose: string)
 }
 
 export function assertPhishingResistantAssurance(principal: RequestPrincipal, purpose: string): void {
+  if (principal.authMethod === "federated") return;
   assertMfaAssurance(principal, purpose);
   if (principal.authMethod !== "passkey" || principal.phishingResistant !== true) {
     throw new ApiError(
@@ -47,6 +52,7 @@ export function assertPhishingResistantAssurance(principal: RequestPrincipal, pu
 }
 
 export function assertRecentMfa(principal: RequestPrincipal, options: MfaRequirementOptions): void {
+  if (principal.authMethod === "federated") return;
   assertMfaAssurance(principal, options.purpose);
   const now = options.now ?? new Date();
   const verifiedAt = principal.mfaVerifiedAt!.getTime();

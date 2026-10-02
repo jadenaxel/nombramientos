@@ -3,6 +3,7 @@ export const API_LOG_REDACTION_PATHS = Object.freeze([
   "req.headers.authorization",
   "req.headers.x-csrf-token",
   "req.headers.x-step-up-grant",
+  "req.headers.x-device-proof",
   "req.body",
   "request.body",
   "body",

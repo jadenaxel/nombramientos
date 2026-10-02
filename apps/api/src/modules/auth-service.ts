@@ -67,6 +67,13 @@ export interface MfaRequiredResult {
   readonly challengeToken: string;
 }
 
+/** GET /v1/session includes the authoritative observation time without
+ * modifying the session's stored absolute or idle expiration. */
+export type SessionSnapshotResult = Omit<AuthenticatedResult, "sessionToken"> & {
+  readonly serverTime: string;
+  readonly sessionId: string;
+};
+
 export interface MfaEnrollmentStartedResult {
   readonly enrollmentId: string;
   readonly secret: string;
@@ -656,6 +663,29 @@ export class AuthService {
       sessionToken,
       expiresAt: principal.expiresAt,
     };
+  }
+
+  public async createFederatedSession(input: {
+    readonly identityId: string;
+    readonly tenantId: string;
+    readonly sourceSessionId: string;
+    readonly requestId: string;
+    readonly userAgent?: string;
+    readonly ip?: string;
+  }): Promise<AuthenticatedResult> {
+    const result = await this.createSession({
+      identityId: input.identityId,
+      tenantId: input.tenantId,
+      requestId: input.requestId,
+      assuranceLevel: "password",
+      authMethod: "federated",
+      aal: 1,
+      phishingResistant: false,
+      ...(input.userAgent ? { userAgent: input.userAgent } : {}),
+      ...(input.ip ? { ip: input.ip } : {}),
+    });
+    await this.database.control.bindGestionChurchSession(sha256(result.sessionToken), input.identityId, input.sourceSessionId);
+    return result;
   }
 
   private async createSession(input: {

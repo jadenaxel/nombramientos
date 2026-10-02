@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-import type { KeyGrant } from "@/lib/api";
+import { ApiError, type KeyGrant } from "@/lib/api";
 import { unlockTenantKey } from "@/lib/crypto-client";
 import { TenantCryptoKeyring } from "@/lib/tenant-keyring";
 import { AccessibilityPreferencesProvider } from "@/components/nombramientos/accessibility-preferences";
@@ -33,7 +33,13 @@ export function useVault() {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: { queries: { staleTime: 10_000, retry: 1, refetchOnWindowFocus: false } },
+    defaultOptions: {
+      queries: {
+        staleTime: 10_000,
+        retry: (failureCount, error) => !(error instanceof ApiError && [401, 403].includes(error.status)) && failureCount < 1,
+        refetchOnWindowFocus: false,
+      },
+    },
   }));
   const [key, setKey] = useState<CryptoKey>();
   const [keyId, setKeyId] = useState<string>();

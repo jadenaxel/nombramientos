@@ -3,26 +3,26 @@
   "scannerVersion": 2,
   "scope": "delivery",
   "pass": true,
-  "fileCount": 1187,
-  "textFileCount": 1176,
+  "fileCount": 1234,
+  "textFileCount": 1223,
   "binaryFileCount": 11,
   "archiveEntryCount": 20,
-  "bytesScanned": 25725241,
-  "manifestSha256": "99ea964df33be1c681c4e27cb3beab9075e93fd5a6aa0670becd8dd5569cc4c7",
+  "bytesScanned": 26298669,
+  "manifestSha256": "bfcf116f1cb7bab4b6e010a4fbe97fb943a5e352a5a7b6c1539be38576773dcd",
   "roots": [
     {
       "label": "api-dist",
       "path": "apps/api/dist",
       "required": true,
       "present": true,
-      "fileCount": 228
+      "fileCount": 236
     },
     {
       "label": "web-standalone",
       "path": "apps/web/.next/standalone",
       "required": true,
       "present": true,
-      "fileCount": 242
+      "fileCount": 261
     },
     {
       "label": "catalog-dist",
@@ -36,7 +36,7 @@
       "path": "packages/database/dist",
       "required": true,
       "present": true,
-      "fileCount": 548
+      "fileCount": 568
     },
     {
       "label": "domain-dist",
@@ -75,7 +75,7 @@
     }
   ],
   "exclusions": {
-    "dependencyCacheOrRuntimeDirectoryCount": 5,
+    "dependencyCacheOrRuntimeDirectoryCount": 4,
     "ephemeralFileCount": 2,
     "localSecretDirectoriesRead": 0
   },
@@ -138,5 +138,5 @@
     "otherBinary": "raw ASCII and UTF-16LE strings",
     "limitation": "Rasterized text in image pixels is not OCR-scanned; encrypted or unsupported archive content fails closed."
   },
-  "scannedAtUtc": "2026-09-14T11:04:18.968Z"
+  "scannedAtUtc": "2026-10-02T01:44:22.131Z"
 }

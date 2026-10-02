@@ -2,6 +2,7 @@ import { createCipheriv, createHash, randomBytes, randomUUID } from "node:crypto
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { bindDirectFixtureSession } from "./direct-device-session-fixture.js";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../src/migrations.js";
@@ -1181,4 +1182,5 @@ async function grantRealTenantContentKey(client: import("pg").PoolClient, identi
      ) VALUES ($1,$2,$3,'{}'::jsonb,$4,'initial','active',$2)`,
     [TENANT_KEY_GENERATION_ID, identityId, deviceId, `sha256:${randomBytes(32).toString("hex")}`],
   );
+  await bindDirectFixtureSession(client, deviceId);
 }

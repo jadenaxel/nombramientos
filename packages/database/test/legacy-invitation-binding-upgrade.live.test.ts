@@ -26,6 +26,9 @@ const WORKSPACE_PORT = 55_432;
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const tenantMigrations = path.join(packageRoot, "migrations", "tenant");
 const controlMigrations = path.join(packageRoot, "migrations", "control");
+const GESTIONCHURCH_FEDERATION_MIGRATION = "037_gestionchurch_federation.sql";
+const EXPLICIT_CUSTODIAN_MIGRATION = "038_gestionchurch_explicit_custodian_role.sql";
+const DEVICE_SESSION_MIGRATION = "039_device_bound_http_sessions.sql";
 const installFile = path.join(packageRoot, ".local", "install.json");
 const requireLive = process.env["NOMBRAMIENTOS_REQUIRE_LIVE_INTEGRATION"] === "true";
 const adminUrl = discoverAdminUrl();
@@ -42,7 +45,12 @@ live("legacy invitation binding 035 to 036 reconciliation", () => {
     await withTemporaryPair(async ({ control, tenant }) => {
       const fixture = await seedAcceptedLegacyBinding(control, tenant);
       const plan = await inspectMigrationPlan(tenant, { scope: "tenant", directory: tenantMigrations });
-      expect(plan.pending.map(({ name }) => name)).toEqual([LEGACY_INVITATION_RECONCILIATION_MIGRATION]);
+      expect(plan.pending.map(({ name }) => name)).toEqual([
+        LEGACY_INVITATION_RECONCILIATION_MIGRATION,
+        GESTIONCHURCH_FEDERATION_MIGRATION,
+        EXPLICIT_CUSTODIAN_MIGRATION,
+        DEVICE_SESSION_MIGRATION,
+      ]);
       const before = await inspectLegacyInvitationReconciliation(tenant, control, fixture.tenantId);
       expect(before.evidence).toMatchObject({
         required: true,
@@ -259,13 +267,16 @@ live("legacy invitation binding 035 to 036 reconciliation", () => {
     });
   }, 180_000);
 
-  it("upgrades an exact accepted binding from tenant head 034 through 035 and 036", async () => {
+  it("upgrades an exact accepted binding from tenant head 034 through device session head 039", async () => {
     await withTemporaryPair(async ({ control, tenant }) => {
       const fixture = await seedAcceptedLegacyBinding(control, tenant);
       const plan = await inspectMigrationPlan(tenant, { scope: "tenant", directory: tenantMigrations });
       expect(plan.pending.map(({ name }) => name)).toEqual([
         "035_system_role_assignment_matrix.sql",
         LEGACY_INVITATION_RECONCILIATION_MIGRATION,
+        GESTIONCHURCH_FEDERATION_MIGRATION,
+        EXPLICIT_CUSTODIAN_MIGRATION,
+        DEVICE_SESSION_MIGRATION,
       ]);
       const before = await inspectLegacyInvitationReconciliation(tenant, control, fixture.tenantId);
       const controlClient = await control.connect();

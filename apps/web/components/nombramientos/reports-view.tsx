@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Download, FileBarChart, FilePenLine, FileSpreadsheet, FileText, Languages, LoaderCircle, Printer, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, Building2, CheckCircle2, ClipboardList, Download, FileBarChart, FilePenLine, FileSpreadsheet, FileText, Languages, LayoutDashboard, ListTodo, LoaderCircle, Network, Printer, ShieldCheck, X, type LucideIcon } from "lucide-react";
 import { localeMetadata, supportedLocales } from "@nombramientos/i18n";
 
 import { useVault } from "@/app/providers";
@@ -61,6 +61,12 @@ type ReportDefinition = {
   audiences: readonly Audience[];
   permissions?: readonly string[];
 };
+type ReportPreset = {
+  reportType: ReportType;
+  icon: LucideIcon;
+  titleKey: Parameters<typeof message>[1];
+  descriptionKey: Parameters<typeof message>[1];
+};
 type ReportFilterKey = "cycle" | "term" | "session" | "department" | "office" | "person" | "phase" | "state";
 
 const ORGANIZATION_PERMISSIONS = ["aggregate.read", "organigram.read"] as const;
@@ -79,6 +85,14 @@ const reports: readonly ReportDefinition[] = [
   { id: "cycle_history", titles: { es: message("es", "screen.reportsView.ae88a5039326"), en: message("en", "screen.reportsView.ae88a5039326"), fr: message("fr", "screen.reportsView.ae88a5039326") }, audiences: ["committee", "auditor", "church"], permissions: ["aggregate.read"] },
   { id: "audit_integrity", titles: { es: message("es", "screen.reportsView.12af05cec626"), en: message("en", "screen.reportsView.12af05cec626"), fr: message("fr", "screen.reportsView.12af05cec626") }, audiences: ["committee", "auditor"], permissions: ["audit.read"] },
   { id: "roster_import_incidents", titles: { es: message("es", "screen.reportsView.df78b3d408a7"), en: message("en", "screen.reportsView.df78b3d408a7"), fr: message("fr", "screen.reportsView.df78b3d408a7") }, audiences: ["committee"], permissions: ["member.read", "member.import"] },
+] as const;
+
+const reportPresets: readonly ReportPreset[] = [
+  { reportType: "cycle_summary", icon: LayoutDashboard, titleKey: "reports.studio.executive.title", descriptionKey: "reports.studio.executive.description" },
+  { reportType: "department", icon: Building2, titleKey: "reports.studio.departments.title", descriptionKey: "reports.studio.departments.description" },
+  { reportType: "progress", icon: ListTodo, titleKey: "reports.studio.pending.title", descriptionKey: "reports.studio.pending.description" },
+  { reportType: "session_minutes", icon: ClipboardList, titleKey: "reports.studio.sessions.title", descriptionKey: "reports.studio.sessions.description" },
+  { reportType: "elected_board", icon: Network, titleKey: "reports.studio.organigram.title", descriptionKey: "reports.studio.organigram.description" },
 ] as const;
 
 const reportFilters: Readonly<Record<ReportType, readonly ReportFilterKey[]>> = {
@@ -406,14 +420,21 @@ function buildRows(input: {
   }
   if (reportType === "progress") {
     if (!workflow.metrics) return emptyRows(locale);
-    const departments = new Map<string, { name: string; total: number; covered: number }>();
+    const departments = new Map<string, { name: string; total: number; covered: number; pending: VisibleOrganization[] }>();
     for (const item of organization) {
-      const value = departments.get(item.departmentId) ?? { name: localizedName(item.departmentNames, locale, item.departmentName), total: 0, covered: 0 };
+      const value = departments.get(item.departmentId) ?? { name: localizedName(item.departmentNames, locale, item.departmentName), total: 0, covered: 0, pending: [] };
       value.total += 1;
       if (["recommended", "accepted", "elected"].includes(item.status)) value.covered += 1;
+      else value.pending.push(item);
       departments.set(item.departmentId, value);
     }
-    return [...summaryRows(workflow.metrics, locale, audience), ...[...departments.values()].map((value) => [value.name, value.total === 0 ? message(locale, "screen.reportsView.14a82ef6df2a") : `${value.covered} / ${value.total} · ${Math.round(value.covered / value.total * 100)} %`] as const)];
+    return [...summaryRows(workflow.metrics, locale, audience), ...[...departments.values()].flatMap<ReportRow>((value) => [
+      [value.name, value.total === 0 ? message(locale, "screen.reportsView.14a82ef6df2a") : `${value.covered} / ${value.total} · ${Math.round(value.covered / value.total * 100)} % · ${value.pending.length} ${message(locale, "screen.reportsView.1e4142a7f2f5").toLocaleLowerCase(locale)}`],
+      ...value.pending.map((item) => [
+        `${value.name} · ${localizedName(item.officeNames, locale, item.officeName)}`,
+        `${item.displayName ?? message(locale, "screen.reportsView.31c490317dc7")} · ${statusLabels[locale][item.status] ?? assignmentLabel(locale, item.status)}`,
+      ] as const),
+    ])];
   }
   if (reportType === "session_minutes") {
     const rows: ReportRow[] = workflow.cycle ? [
@@ -422,7 +443,12 @@ function buildRows(input: {
     ] : [];
     const minutes = workflow.sessionMinutes;
     if (!minutes) {
-      rows.push([message(locale, "screen.reportsView.bba4234f0ca5"), message(locale, "screen.reportsView.fe6a4b43eb3c")]);
+      const dateTime = (value: string) => formatTenantDate(value, locale, timeZone, { dateStyle: "short", timeStyle: "short" });
+      rows.push(...workflow.sessions.map((item) => [
+        `${item.sequence}. ${audience === "church" ? message(locale, "screen.reportsView.614128b94d67", { value0: item.sequence }) : sessionTitles.get(item.id) ?? message(locale, "screen.reportsView.30394ed2ba2b")}`,
+        `${dateTime(item.startsAt)} — ${dateTime(item.endsAt)} · ${reportCodeLabel(locale, item.status)}`,
+      ] as const));
+      if (!workflow.sessions.length) rows.push([message(locale, "screen.reportsView.bba4234f0ca5"), message(locale, "screen.reportsView.fe6a4b43eb3c")]);
       return rows;
     }
     const dateTime = (value: string) => formatTenantDate(value, locale, timeZone, { dateStyle: "short", timeStyle: "short" });
@@ -1150,7 +1176,8 @@ export function ReportsView({ locale, session }: { locale: Locale; session: Auth
   const rows = useMemo(() => reportsQuery.data && workflowQuery.data && selected ? buildRows({ reportType: selected.id, locale: documentLocale, audience: selectedAudience, timeZone: reportTimeZone, workflow: workflowQuery.data, workflowNames, attendanceNames, sessionTitles, agendaTitles, organization, committee, attendanceSessions, attendanceAvailable: canReadAggregates, historySnapshots, members, audit: auditQuery.data, imports: importsQuery.data?.items ?? [], storedReports: reportsQuery.data.items, cycleId, term, sessionId, department, officeId, personId, phase, state }) : [], [agendaTitles, attendanceNames, attendanceSessions, auditQuery.data, canReadAggregates, committee, cycleId, department, documentLocale, historySnapshots, importsQuery.data?.items, members, officeId, organization, personId, phase, reportTimeZone, reportsQuery.data, selected, selectedAudience, sessionId, sessionTitles, state, term, workflowNames, workflowQuery.data]);
   const reportsById = useMemo(() => new Map((reportsQuery.data?.items ?? []).map((report) => [report.id, report])), [reportsQuery.data?.items]);
   const reportSelectionComplete = selected?.id !== "session_minutes"
-    || (sessionId !== "all" && workflowQuery.data?.sessionMinutes?.id === sessionId);
+    || sessionId === "all"
+    || workflowQuery.data?.sessionMinutes?.id === sessionId;
   const issueReport = async (
     format: "pdf" | "xlsx" | "csv",
     correction?: { previous: StoredReport; reasonCode: ReportCorrectionReasonCode },
@@ -1335,6 +1362,14 @@ export function ReportsView({ locale, session }: { locale: Locale; session: Auth
     <div className="reports-layout">
       <section className="report-builder surface-card">
         <div className="card-heading"><div><p className="eyebrow">{correctionTarget ? message(locale, "screen.reportsView.d3a3400055e0") : message(locale, "screen.reportsView.05fc12af92d3")}</p><h2>{correctionTarget ? message(locale, "screen.reportsView.dc9fc56993e1", { value0: correctionTarget.lineageRevision }) : text.generate}</h2></div><span className="report-seal">{correctionTarget ? <FilePenLine /> : <FileBarChart />}</span></div>
+        {!correctionTarget && <section className="report-studio" aria-labelledby="report-studio-title">
+          <div className="report-studio-heading"><div><p className="eyebrow">{message(locale, "reports.studio.eyebrow")}</p><h3 id="report-studio-title">{message(locale, "reports.studio.title")}</h3><p>{message(locale, "reports.studio.description")}</p></div><Badge variant="outline">{availableReports.length} {message(locale, "screen.reportsView.7a4c2c0357fd")}</Badge></div>
+          <div className="report-preset-grid">{reportPresets.filter((preset) => availableReports.some((report) => report.id === preset.reportType)).map((preset) => {
+            const Icon = preset.icon;
+            const active = selected.id === preset.reportType;
+            return <button type="button" key={preset.reportType} className={active ? "report-preset active" : "report-preset"} aria-pressed={active} onClick={() => selectReport(availableReports.find((report) => report.id === preset.reportType)!)}><span><Icon /></span><strong>{message(locale, preset.titleKey)}</strong><small>{message(locale, preset.descriptionKey)}</small>{active && <Badge>{message(locale, "reports.studio.selected")}</Badge>}</button>;
+          })}</div>
+        </section>}
         {correctionTarget && <Alert className="report-correction-alert"><FilePenLine /><AlertTitle>{message(locale, "screen.reportsView.3cbd01129183")}</AlertTitle><AlertDescription><p>{correctionTarget.filename} · v{correctionTarget.lineageRevision}</p><div className="field-stack"><Label htmlFor="report-correction-reason">{message(locale, "screen.reportsView.6f7001c6967c")}</Label><select id="report-correction-reason" value={correctionReason} onChange={(event) => setCorrectionReason(event.target.value as ReportCorrectionReasonCode)} disabled={correctionMutation.isPending}>{REPORT_CORRECTION_REASON_CODES.map((reason) => <option key={reason} value={reason}>{correctionReasonLabels[reason][locale]}</option>)}</select></div><Button type="button" variant="outline" onClick={() => setCorrectionTarget(undefined)} disabled={correctionMutation.isPending}><X />{message(locale, "screen.reportsView.a3e57bf05fe9")}</Button></AlertDescription></Alert>}
         <div className="report-form-grid">
           <div className="field-stack"><Label htmlFor="report-type">{text.reportType}</Label><select id="report-type" value={selected.id} onChange={(event) => selectReport(availableReports.find(({ id }) => id === event.target.value) ?? selected)} disabled={Boolean(correctionTarget)}>{availableReports.map((report) => <option value={report.id} key={report.id}>{report.titles[locale]}</option>)}</select></div>
@@ -1342,14 +1377,14 @@ export function ReportsView({ locale, session }: { locale: Locale; session: Auth
           <div className="field-stack"><Label htmlFor="report-audience">{text.audience}</Label><select id="report-audience" value={selectedAudience} onChange={(event) => setAudience(event.target.value as Audience)} disabled={Boolean(correctionTarget)}>{selected.audiences.map((value) => <option value={value} key={value}>{audienceLabels[locale][value]}</option>)}</select></div>
           {hasFilter("cycle") && <div className="field-stack"><Label htmlFor="report-cycle">{text.cycle}</Label><select id="report-cycle" value={cycleId} onChange={(event) => { setCycleId(event.target.value); setSessionId("all"); setDepartment("all"); setOfficeId("all"); setPersonId("all"); setPhase("all"); setState("all"); }} disabled={Boolean(correctionTarget)}><option value="all">{selected.id === "cycle_history" ? text.all : text.currentCycle}</option>{cycleOptions.map((value) => <option value={value.id} key={value.id}>{value.name}</option>)}</select></div>}
           {hasFilter("term") && <div className="field-stack"><Label htmlFor="report-term">{text.term}</Label><select id="report-term" value={term} onChange={(event) => setTerm(event.target.value)} disabled={Boolean(correctionTarget)}><option value="all">{text.all}</option>{terms.map((value) => <option value={value} key={value}>{value.replace("—", " — ")}</option>)}</select></div>}
-          {hasFilter("session") && <div className="field-stack"><Label htmlFor="report-session">{text.session}</Label><select id="report-session" value={sessionId} onChange={(event) => setSessionId(event.target.value)} disabled={Boolean(correctionTarget)}><option value="all">{text.selectSession}</option>{sessions.map((value) => <option value={value.id} key={value.id}>{value.sequence}. {selectedAudience === "church" ? message(locale, "screen.reportsView.bba4234f0ca5") : sessionTitles.get(value.id) ?? message(locale, "screen.reportsView.30394ed2ba2b")}</option>)}</select></div>}
+          {hasFilter("session") && <div className="field-stack"><Label htmlFor="report-session">{text.session}</Label><select id="report-session" value={sessionId} onChange={(event) => setSessionId(event.target.value)} disabled={Boolean(correctionTarget)}><option value="all">{message(locale, "reports.studio.allSessions")}</option>{sessions.map((value) => <option value={value.id} key={value.id}>{value.sequence}. {selectedAudience === "church" ? message(locale, "screen.reportsView.bba4234f0ca5") : sessionTitles.get(value.id) ?? message(locale, "screen.reportsView.30394ed2ba2b")}</option>)}</select></div>}
           {hasFilter("department") && <div className="field-stack"><Label htmlFor="report-department">{text.department}</Label><select id="report-department" value={department} onChange={(event) => { setDepartment(event.target.value); setOfficeId("all"); }} disabled={Boolean(correctionTarget)}><option value="all">{text.all}</option>{departments.map((value) => <option value={value.id} key={value.id}>{localizedName(value.names, locale, value.canonicalCode)}</option>)}</select></div>}
           {hasFilter("office") && <div className="field-stack"><Label htmlFor="report-office">{text.office}</Label><select id="report-office" value={officeId} onChange={(event) => setOfficeId(event.target.value)} disabled={Boolean(correctionTarget)}><option value="all">{text.all}</option>{offices.map((value) => <option value={value.id} key={value.id}>{localizedName(value.names, locale, value.canonicalCode)}</option>)}</select></div>}
           {hasFilter("person") && <div className="field-stack"><Label htmlFor="report-person">{text.person}</Label><select id="report-person" value={personId} onChange={(event) => setPersonId(event.target.value)} disabled={Boolean(correctionTarget)}><option value="all">{text.all}</option>{people.map(([id, name]) => <option value={id} key={id}>{name}</option>)}</select></div>}
           {hasFilter("phase") && <div className="field-stack"><Label htmlFor="report-phase">{text.phase}</Label><select id="report-phase" value={phase} onChange={(event) => setPhase(event.target.value)} disabled={Boolean(correctionTarget)}><option value="all">{text.all}</option>{phases.map((value) => <option value={value} key={value}>{phaseLabel(locale, value)}</option>)}</select></div>}
           {hasFilter("state") && <div className="field-stack"><Label htmlFor="report-state">{text.state}</Label><select id="report-state" value={state} onChange={(event) => setState(event.target.value)} disabled={Boolean(correctionTarget)}><option value="all">{text.all}</option>{states.map((value) => <option value={value} key={value}>{value === "proposal" ? message(locale, "screen.reportsView.07a0dacbeb7f") : statusLabels[locale][value] ?? assignmentLabel(locale,value)}</option>)}</select></div>}
         </div>
-        <div className="report-preview"><div className="report-paper"><header><span className="brand-mark">N</span><div><small>{session.tenant.name}</small><strong>{reportTitle(selected.id, documentLocale)}</strong></div></header><p className="watermark">{copy[documentLocale].preview}</p><dl>{rows.slice(0, 7).map(([label, value], index) => <div key={`${label}-${index}`}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><footer>{audienceLabels[documentLocale][selectedAudience]} · {rows.length} {message(documentLocale, "screen.reportsView.7a4c2c0357fd")}</footer></div></div>
+        <div className="report-preview"><div className="report-paper"><header><span className="brand-mark">N</span><div><small>NOMBRAMIENTOS · {session.tenant.name}</small><strong>{reportTitle(selected.id, documentLocale)}</strong></div></header><section className="report-paper-hero"><p>{message(documentLocale, "reports.studio.eyebrow")}</p><h3>{reportTitle(selected.id, documentLocale)}</h3><span>{audienceLabels[documentLocale][selectedAudience]}</span></section><dl>{rows.slice(0, 7).map(([label, value], index) => <div key={`${label}-${index}`}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><footer>{rows.length} {message(documentLocale, "reports.studio.previewRows")} · {copy[documentLocale].preview}</footer></div></div>
         <p className="eyebrow">{text.formats}</p>
         {mayExport ? correctionTarget && correctionTarget.format !== "html"
           ? <div className="format-actions"><Button onClick={() => correctionMutation.mutate(correctionReason)} disabled={correctionMutation.isPending || Boolean(decryptError) || !reportSelectionComplete}>{correctionMutation.isPending ? <LoaderCircle className="animate-spin" /> : <FilePenLine />}{message(locale, "screen.reportsView.812c2007ad0a", { value0: correctionTarget.format.toUpperCase() })}</Button></div>

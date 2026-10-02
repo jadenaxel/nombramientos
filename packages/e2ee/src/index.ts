@@ -24,6 +24,7 @@ export {
   type Sha256Digest,
 } from "./ballot.js";
 export { E2eeError, type E2eeErrorCode } from "./errors.js";
+export { sealDeviceSessionChallenge, openDeviceSessionChallenge, type DeviceSessionEnrollmentContext, type DeviceSessionEncryptedChallenge } from "./device-session-challenge.js";
 export {
   exportCustodianPrivateKey,
   exportCustodianPublicKey,

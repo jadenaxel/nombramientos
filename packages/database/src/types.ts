@@ -66,6 +66,8 @@ export interface SessionBinding {
 
 export interface RequestPrincipal extends SessionRecord {
   readonly permissions: ReadonlySet<string>;
+  /** Set only by the API after signature + single-use nonce verification. */
+  readonly provenDeviceId?: string;
 }
 
 export interface TenantExecutionContext {
@@ -73,6 +75,8 @@ export interface TenantExecutionContext {
   readonly identityId: string;
   readonly sessionId: string;
   readonly requestId: string;
+  readonly provenDeviceId?: string;
+  readonly deferDevicePin?: boolean;
 }
 
 export type TenantWork<T> = (client: PoolClient) => Promise<T>;

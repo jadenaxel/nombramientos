@@ -5,13 +5,14 @@ import {
   CustodyError,
   DataConflictError,
   DatabaseRuntime,
+  DeviceSessionStoreError,
 } from "@nombramientos/database";
 import { ZodError } from "zod";
 import type { ApiConfig } from "./config.js";
 import { ApiError } from "./lib/errors.js";
 import { API_LOG_REDACTION_PATHS, API_LOG_SERIALIZERS, safeLogError } from "./lib/log-safety.js";
 import { registerAuthRoutes } from "./modules/auth-routes.js";
-import { registerEnterpriseAuthRoutes } from "./modules/enterprise-auth-routes.js";
+import { registerEnterpriseAuthRoutes, registerSessionManagementRoutes } from "./modules/enterprise-auth-routes.js";
 import { registerAccessRoutes } from "./modules/access-routes.js";
 import { AuthService } from "./modules/auth-service.js";
 import { EnterpriseAuthService } from "./modules/enterprise-auth-service.js";
@@ -30,6 +31,9 @@ import { registerPhotoRoutes } from "./modules/photo-routes.js";
 import { registerRoundRoutes } from "./modules/round-routes.js";
 import { registerTenantRoutes } from "./modules/tenant-routes.js";
 import { registerSecurity } from "./security.js";
+import { registerGestionChurchIntegrationRoutes } from "./modules/gestionchurch-integration-routes.js";
+import { registerDeviceSessionRoutes } from "./modules/device-session-proof.js";
+import { registerDeviceDenialAudit } from "./modules/device-denial-audit.js";
 
 export interface BuildServerOptions {
   readonly config: ApiConfig;
@@ -79,6 +83,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   );
 
   await registerSecurity(app);
+  registerDeviceDenialAudit(app);
   app.addHook("onSend", async (request, reply) => {
     reply.header("x-request-id", request.id);
     if (!reply.hasHeader("cache-control")) reply.header("cache-control", "no-store");
@@ -94,11 +99,17 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     return reply.send({ status: "ok", service: "nombramientos-api", worker });
   });
   await registerAuthRoutes(app);
-  await registerEnterpriseAuthRoutes(app);
-  await registerPlatformBootstrapRoutes(app);
+  await registerGestionChurchIntegrationRoutes(app);
+  if (!options.config.gestionChurchIntegration?.enabled) {
+    await registerEnterpriseAuthRoutes(app);
+    await registerPlatformBootstrapRoutes(app);
+    await registerInvitationRoutes(app);
+    await registerInitialAdminOnboardingRecoveryRoutes(app);
+  } else {
+    await registerSessionManagementRoutes(app);
+  }
+  await registerDeviceSessionRoutes(app);
   await registerAccessRoutes(app);
-  await registerInvitationRoutes(app);
-  await registerInitialAdminOnboardingRecoveryRoutes(app);
   await registerKeyLifecycleRoutes(app);
   await registerCustodyRoutes(app);
   await registerCoreWorkflowRoutes(app);
@@ -114,6 +125,9 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     meta: { requestId: request.id },
   }));
   app.setErrorHandler((error, request, reply) => {
+    if (error instanceof DeviceSessionStoreError) {
+      return reply.status(401).send({ error:{code:error.code,message:"The browser security context is invalid or revoked"},meta:{requestId:request.id} });
+    }
     if (error instanceof ApiError) {
       return reply.status(error.statusCode).send({
         error: { code: error.code, message: error.message, ...(error.details === undefined ? {} : { details: error.details }) },

@@ -18,6 +18,11 @@ const source = readFileSync(new URL("../src/provisioner.ts", import.meta.url), "
 const reconcileSource = readFileSync(new URL("../scripts/reconcile-runtime-grants.ts", import.meta.url), "utf8");
 
 describe("tenant runtime grant contract", () => {
+  it("allows only the shared-session binding column, not blanket session updates", () => {
+    const migration = readFileSync(new URL('../scripts/migrate-control.ts', import.meta.url), 'utf8');
+    expect(migration).toMatch(/GRANT UPDATE\([^']*gestionchurch_source_session_id\) ON TABLE auth_sessions TO %I/u);
+    expect(migration).not.toMatch(/GRANT UPDATE ON TABLE auth_sessions/u);
+  });
   it.each(["departments", "offices", "report_versions"])(
     "allows the API runtime to mutate %s through the authorized store",
     (table) => {

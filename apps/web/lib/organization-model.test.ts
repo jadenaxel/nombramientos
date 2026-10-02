@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   filterOrganizationItems,
   groupOrganizationByDepartment,
+  organizationDirectoryInsights,
   organizationReportQuery,
   organizationTotals,
   organizationWorkload,
@@ -26,7 +27,23 @@ describe("organization view model", () => {
   it("groups and sorts the accessible hierarchy without changing the records", () => {
     const grouped = groupOrganizationByDepartment(items, "es");
     assert.deepEqual(grouped.map(([department]) => department), ["Ancianos", "Música", "Secretaría"]);
-    assert.deepEqual(grouped[0]?.[1].map(({ id }) => id), ["a-base", "a-linked"]);
+    assert.deepEqual(grouped[0]?.[1].map(({ id }) => id), ["a-linked", "a-base"]);
+  });
+
+  it("prioritizes leadership and derives directory-grade insights without counting names", () => {
+    const unordered: readonly OrganizationItemModel[] = [
+      { id: "helper", memberId: "person-2", officeName: "Colaboración de Jóvenes", departmentName: "Jóvenes", departmentId: "youth", status: "elected", displayName: "Sara" },
+      { id: "director", memberId: "person-1", officeName: "Dirección de Jóvenes", departmentName: "Jóvenes", departmentId: "youth", status: "elected", displayName: "Luis" },
+      { id: "assistant", memberId: "person-1", officeName: "Subdirección de Jóvenes", departmentName: "Jóvenes", departmentId: "youth", status: "elected", displayName: "Luis" },
+    ];
+    assert.deepEqual(groupOrganizationByDepartment(unordered, "es")[0]?.[1].map(({ id }) => id), ["director", "assistant", "helper"]);
+    assert.deepEqual(organizationDirectoryInsights(unordered), {
+      people: 2,
+      departments: 1,
+      appointments: 3,
+      leadership: 2,
+      multiRolePeople: 1,
+    });
   });
 
   it("separates independent workload from linked nominal functions", () => {

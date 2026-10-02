@@ -7,7 +7,7 @@ import {
   type TenantKeyRecoveryAuthorization,
 } from "@nombramientos/e2ee";
 
-import { apiRequest, ApiError, idempotencyKey } from "./api";
+import { apiRequest, ApiError, idempotencyKey } from "./api.ts";
 
 export type KeyLifecycleOperation =
   | "device.register"
@@ -305,7 +305,7 @@ async function retryIdempotent<T>(request: () => Promise<T>): Promise<T> {
   try {
     return await request();
   } catch (error) {
-    if (error instanceof ApiError && error.status < 500) throw error;
+    if (error instanceof ApiError && (error.status < 500 || error.code.endsWith("_UNCERTAIN"))) throw error;
     return request();
   }
 }

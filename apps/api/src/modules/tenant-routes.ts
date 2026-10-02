@@ -30,6 +30,7 @@ import {
   assignmentConsentBodySchema,
   workflowReportQuerySchema,
 } from "./core-workflow-contract.js";
+import { getGestionChurchOrganizationDirectory } from "./gestionchurch-integration-routes.js";
 
 const uuid = z.string().uuid();
 const sha256 = z.string().regex(/^sha256:[0-9a-f]{64}$/);
@@ -599,6 +600,7 @@ export async function registerTenantRoutes(app: FastifyInstance): Promise<void> 
   });
   app.get("/v1/organization", { preHandler: protectedRead(app, "organigram.read") }, async (request, reply) => {
     const query = parseQuery(organizationQuerySchema, request);
+    const principal = requirePrincipal(request);
     return withTenant(app, request, async (tenant) => {
       const result = await tenant.getOrganization({
         stage: query.stage,
@@ -606,6 +608,24 @@ export async function registerTenantRoutes(app: FastifyInstance): Promise<void> 
       });
       if (query.cycleId && result["selectedCycle"] === null) {
         throw new ApiError(404, "CYCLE_UNAVAILABLE", "Cycle is unavailable");
+      }
+      const localItems = Array.isArray(result["items"])
+        ? result["items"] as Array<Record<string, unknown>>
+        : [];
+      const localElectedStructureStarted = localItems.some((item) => typeof item["memberId"] === "string");
+      if (query.stage === "elected" && !query.cycleId && !localElectedStructureStarted) {
+        const directory = await getGestionChurchOrganizationDirectory(app, principal);
+        if (directory?.items.length) {
+          reply.header("cache-control", "private, no-store");
+          return respond(request, reply, {
+            ...result,
+            source: directory.source,
+            sourceUpdatedAt: directory.sourceUpdatedAt,
+            generatedAt: directory.generatedAt,
+            directorySummary: directory.summary,
+            items: directory.items,
+          });
+        }
       }
       reply.header("cache-control", "private, no-store");
       return respond(request, reply, result);

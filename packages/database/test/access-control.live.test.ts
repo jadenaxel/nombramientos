@@ -16,6 +16,9 @@ const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const tenantMigrationDirectory = path.join(packageRoot, "migrations", "tenant");
 const roleAssignmentMigration = "035_system_role_assignment_matrix.sql";
 const transactionalGrantorLockMigration = "036_transactional_invitation_grantor_lock.sql";
+const gestionChurchFederationMigration = "037_gestionchurch_federation.sql";
+const explicitCustodianMigration = "038_gestionchurch_explicit_custodian_role.sql";
+const deviceSessionMigration = "039_device_bound_http_sessions.sql";
 const installFile = path.join(packageRoot, ".local", "install.json");
 const requireLive = process.env["NOMBRAMIENTOS_REQUIRE_LIVE_INTEGRATION"] === "true";
 const adminUrl = discoverAdminUrl();
@@ -57,14 +60,20 @@ live("AC-05/06 bounded tenant access administration", () => {
     if (fixture) await cleanupFixture(fixture);
   }, 60_000);
 
-  it("upgrades a populated tenant from head 034 through the assignment matrix and transactional grantor lock", async () => {
+  it("upgrades a populated tenant from head 034 through device-bound session head 039", async () => {
     const current = requireFixture();
-    expect(current.upgradedMigrations).toEqual([roleAssignmentMigration, transactionalGrantorLockMigration]);
+    expect(current.upgradedMigrations).toEqual([
+      roleAssignmentMigration,
+      transactionalGrantorLockMigration,
+      gestionChurchFederationMigration,
+      explicitCustodianMigration,
+      deviceSessionMigration,
+    ]);
     const ledger = await current.tenant.query<{ count: number; head: string | null }>(
       `SELECT count(*)::int AS count,max(name) AS head
          FROM schema_migrations`,
     );
-    expect(ledger.rows).toEqual([{ count: 38, head: transactionalGrantorLockMigration }]);
+    expect(ledger.rows).toEqual([{ count: 41, head: deviceSessionMigration }]);
   });
 
   it("creates and edits only local roles inside the actor's delegable authority", async () => {
@@ -425,11 +434,14 @@ async function createFixture(databaseAdminUrl: string): Promise<Fixture> {
       directory: tenantMigrationDirectory,
     });
     if (
-      upgradedMigrations.length !== 2
+      upgradedMigrations.length !== 5
       || upgradedMigrations[0] !== roleAssignmentMigration
       || upgradedMigrations[1] !== transactionalGrantorLockMigration
+      || upgradedMigrations[2] !== gestionChurchFederationMigration
+      || upgradedMigrations[3] !== explicitCustodianMigration
+      || upgradedMigrations[4] !== deviceSessionMigration
     ) {
-      throw new Error("The tenant upgrade did not apply exactly migrations 035 and 036");
+      throw new Error("The tenant upgrade did not apply exactly migrations 035, 036, 037, 038 and 039");
     }
     return { cluster, tenant, databaseName, tenantId, actorId, targetId, upgradedMigrations };
   } catch (error) {

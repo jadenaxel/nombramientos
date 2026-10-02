@@ -21,7 +21,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { api, apiBaseUrl, ApiError, idempotencyKey, type ActiveRoundData, type AuthenticatedSession, type Locale } from "@/lib/api";
+import { api, openDeviceEventStream, ApiError, idempotencyKey, type ActiveRoundData, type AuthenticatedSession, type Locale } from "@/lib/api";
+import { consumeDeviceEventStream } from "@/lib/device-event-stream";
 import { encryptJson } from "@/lib/crypto-client";
 import { openJsonEnvelope } from "@/lib/historical-envelope";
 import { localizedApiError, localizedName, message, phaseLabel } from "@/lib/product-i18n";
@@ -106,11 +107,11 @@ function useLiveRound(enabled: boolean, tenantId: string) {
   const [status, setStatus] = useState<LiveStatus>("connecting");
   useEffect(() => {
     if (!enabled) return;
-    let source: EventSource | undefined;
+    let source: AbortController | undefined;
     let retryTimer: number | undefined;
     let disposed = false;
     let validationSequence = 0;
-    const revalidate = (current: EventSource) => {
+    const revalidate = (current: AbortController) => {
       const sequence = ++validationSequence;
       setStatus("connecting");
       void Promise.all([
@@ -120,7 +121,7 @@ function useLiveRound(enabled: boolean, tenantId: string) {
         if (!disposed && source === current && validationSequence === sequence) setStatus("live");
       }).catch(() => {
         if (disposed || source !== current || validationSequence !== sequence) return;
-        current.close();
+        current.abort();
         source = undefined;
         setStatus("offline");
         retryTimer = window.setTimeout(connect, 3_000);
@@ -133,27 +134,29 @@ function useLiveRound(enabled: boolean, tenantId: string) {
         return;
       }
       if (retryTimer !== undefined) window.clearTimeout(retryTimer);
-      source?.close();
+      source?.abort();
       setStatus("connecting");
-      const next = new EventSource(`${apiBaseUrl}/v1/events?tenantId=${encodeURIComponent(tenantId)}`, { withCredentials: true });
+      const next = new AbortController();
       source = next;
-      next.onerror = () => {
-        if (disposed || source !== next) return;
-        validationSequence += 1;
-        next.close();
-        source = undefined;
-        setStatus("offline");
-        retryTimer = window.setTimeout(connect, 3_000);
-      };
-      next.addEventListener("ready", () => revalidate(next));
-      next.addEventListener("round.phase", () => revalidate(next));
-      next.addEventListener("round.participation", () => revalidate(next));
-      next.addEventListener("round.closed", () => revalidate(next));
+      void (async () => {
+        try {
+          const response = await openDeviceEventStream(`/v1/events?tenantId=${encodeURIComponent(tenantId)}`, next.signal);
+          await consumeDeviceEventStream(response, (event) => {
+            if (!disposed && source === next && ["ready", "round.phase", "round.participation", "round.closed"].includes(event)) revalidate(next);
+          }, next.signal);
+        } catch { /* Stream transport degrades honestly to offline; the API handles revoked sessions. */ }
+        finally {
+          if (!disposed && source === next) {
+            validationSequence += 1; next.abort(); source = undefined;
+            setStatus("offline"); retryTimer = window.setTimeout(connect, 3_000);
+          }
+        }
+      })();
     };
     const offline = () => {
       validationSequence += 1;
       if (retryTimer !== undefined) window.clearTimeout(retryTimer);
-      source?.close();
+      source?.abort();
       source = undefined;
       setStatus("offline");
     };
@@ -167,7 +170,7 @@ function useLiveRound(enabled: boolean, tenantId: string) {
       if (retryTimer !== undefined) window.clearTimeout(retryTimer);
       window.removeEventListener("offline", offline);
       window.removeEventListener("online", online);
-      source?.close();
+      source?.abort();
     };
   }, [client, enabled, tenantId]);
   return status;
