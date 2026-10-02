@@ -28,7 +28,7 @@
     "fastify": "5.12.5",
     "jose": "6.2.12",
     "otpauth": "9.4.1",
-    "zod": "3.25.76"
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@nombramientos/catalog": "workspace:*",
