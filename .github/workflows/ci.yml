@@ -156,7 +156,7 @@ jobs:
           stop_service .ci-web.pid
       - name: Upload verification evidence
         if: always()
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: verification-evidence
           if-no-files-found: warn
