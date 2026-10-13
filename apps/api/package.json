@@ -17,24 +17,24 @@
     "performance:scale:self-check": "pnpm build && node dist/scripts/performance-scale-local.js --self-check"
   },
   "dependencies": {
-    "@fastify/cookie": "11.0.2",
-    "@fastify/cors": "11.1.0",
-    "@fastify/helmet": "13.0.2",
+    "@fastify/cookie": "11.1.3",
+    "@fastify/cors": "11.3.1",
+    "@fastify/helmet": "13.1.2",
     "@fastify/rate-limit": "10.3.0",
     "@nombramientos/database": "workspace:*",
     "@nombramientos/e2ee": "workspace:*",
-    "@simplewebauthn/server": "14.0.1",
-    "argon2": "0.44.0",
+    "@simplewebauthn/server": "14.0.3",
+    "argon2": "0.45.1",
     "fastify": "5.12.5",
     "jose": "6.2.12",
-    "otpauth": "9.4.1",
+    "otpauth": "9.5.2",
     "zod": "3.25.76"
   },
   "devDependencies": {
     "@nombramientos/catalog": "workspace:*",
     "@types/node": "24.10.1",
-    "@types/pg": "8.15.5",
-    "pg": "8.16.3",
+    "@types/pg": "8.23.1",
+    "pg": "8.23.1",
     "tsx": "4.20.6",
     "typescript": "5.9.3",
     "vitest": "4.1.11"
