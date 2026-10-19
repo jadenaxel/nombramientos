@@ -55,7 +55,7 @@
     "@nombramientos/e2ee": "workspace:*",
     "@types/node": "24.10.1",
     "@types/pg": "8.15.5",
-    "tsx": "4.20.6",
+    "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "4.1.11"
   },
